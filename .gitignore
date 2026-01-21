@@ -1,0 +1,16 @@
+# Environment
+.env
+.env.local
+.env.docker
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# IDEs
+.idea/
+.vscode/
+
+# OS
+.DS_Store
