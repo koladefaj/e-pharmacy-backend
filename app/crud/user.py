@@ -1,7 +1,9 @@
 import logging
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.schemas.pharmacist import PharmacistApproveSchema
 from sqlalchemy import select
+from app.core.roles import UserRole
 from app.models.user import User
 
 # Initialize logger for tracking auth events
@@ -29,3 +31,23 @@ class UserCRUD:
         # We use flush here so the ID is populated, but commit happens in Service
         await self.session.flush() 
         return new_user
+    
+    async def get_all_pharmacists(self, skip: int = 0, limit: int = 10):
+        stmt = (
+            select(User)
+            .where(User.role == UserRole.PHARMACIST.value, User.is_active == True)
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def verify_pharmacist(self, *, db_obj: User, obj_in: PharmacistApproveSchema):
+        # This just updates the fields and saves
+        db_obj.license_verified = True  # Assuming you have this field
+        db_obj.is_active = True
+        # If PharmacistApproveSchema has license notes, update them here
+        # ...
+        await self.session.commit()
+        await self.session.refresh(db_obj)
+        return db_obj

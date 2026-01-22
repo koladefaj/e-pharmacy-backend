@@ -6,3 +6,4 @@ user_role_enum = sa.Enum(
     "pharmacist",
     name="user_roles",
 )
+

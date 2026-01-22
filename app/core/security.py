@@ -1,7 +1,7 @@
 import logging
 import bcrypt
 from app.core.exceptions import PasswordVerificationError
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt
 from app.core.config import settings
 
@@ -24,8 +24,8 @@ def create_access_token(user) -> str:
     - exp: Expiration timestamp (Default: 20 minutes)
     """
 
-    now = datetime.utcnow()
-    expire = datetime.utcnow() + timedelta(
+    now = datetime.now(timezone.utc)
+    expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
 
@@ -49,8 +49,8 @@ def create_refresh_token(user) -> str:
     Used to obtain a new access token without re-entering credentials.
     """
 
-    now = datetime.utcnow()
-    expire = datetime.utcnow() + timedelta(
+    now = datetime.now(timezone.utc)
+    expire = datetime.now(timezone.utc) + timedelta(
         days=settings.refresh_token_expire_days
     )
 
