@@ -1,0 +1,70 @@
+import logging
+from fastapi import HTTPException, status, UploadFile
+import magic  
+
+# Initialize logger for security events
+logger = logging.getLogger(__name__)
+
+# --- 1. CONFIGURATION ---
+# Allowed MIME types mapped to valid extensions
+ALLOWED_MIME_TYPES = {
+    "application/pdf": [".pdf"],
+    "application/msword": [".doc"],
+    "application/zip": [".docx", ".zip"],
+    "image/jpeg": [".jpg", ".jpeg"],
+    "image/png": [".png"],
+}
+
+# Max file size: 10MB
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+async def validate_file_content(file: UploadFile):
+    """
+    Validates uploaded files:
+    1. Size Check
+    2. MIME type check via magic bytes
+    3. Extension consistency check
+    """
+
+    # --- STAGE 1: SIZE VALIDATION ---
+    file_size = 0
+    if hasattr(file, "size") and file.size:
+        file_size = file.size
+    else:
+        # Fallback for clients without size headers
+        await file.seek(0, 2)  # move to end
+        file_size = await file.tell()
+        await file.seek(0)
+
+    if file_size > MAX_FILE_SIZE:
+        logger.warning(f"Security: Blocked oversized file ({file_size} bytes)")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File exceeds 10MB limit."
+        )
+
+    # --- STAGE 2: CONTENT VALIDATION (Magic Bytes) ---
+    header = await file.read(2048)  # first 2KB is enough
+    file_mime_type = magic.from_buffer(header, mime=True)
+    await file.seek(0)  # reset for next service
+
+    if file_mime_type not in ALLOWED_MIME_TYPES:
+        logger.error(f"Security: Rejected unsupported MIME type: {file_mime_type}")
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported file type: {file_mime_type}"
+        )
+
+    # --- STAGE 3: EXTENSION CONSISTENCY ---
+    file_ext = "." + file.filename.split(".")[-1].lower() if file.filename else ""
+    if file_ext not in ALLOWED_MIME_TYPES[file_mime_type]:
+        logger.error(f"Security: Extension mismatch: {file_ext} vs {file_mime_type}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File extension does not match the actual file content."
+        )
+
+    # Final cursor reset for downstream processing
+    await file.seek(0)
+    logger.info(f"Security: File {file.filename} passed validation ({file_mime_type})")
+    return True

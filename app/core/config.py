@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     s3_secret_key: str
     s3_region: str
 
+    storage: str
+
 
 
 

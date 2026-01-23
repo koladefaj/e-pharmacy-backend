@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.schemas.cart import CartItemCreate
 from app.core.deps import get_current_customer, get_redis
+from app.services.checkout_service import checkout_service
 from app.db.sessions import get_async_session
 from app.services.cart_service import cart_service
 
@@ -163,3 +164,17 @@ async def clear_cart(
     )
 
     return {"message": "Cart cleared"}
+
+
+
+@router.post("/checkout")
+async def checkout(
+    redis: Redis = Depends(get_redis),
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_customer),
+):
+    return await checkout_service.checkout(
+        db=db,
+        redis=redis,
+        user_id=current_user.id
+    )

@@ -9,9 +9,12 @@ from redis.asyncio import Redis
 from app.core.config import settings
 
 from app.core.roles import UserRole
+from app.storage.base import StorageInterface
+from app.storage.r2_storage import R2Storage
 from app.core.config import settings
 from app.db.sessions import get_async_session
 from app.models import User
+from redis.asyncio import Redis
 
 # Initialize logger for security events
 logger = logging.getLogger(__name__)
@@ -19,7 +22,19 @@ logger = logging.getLogger(__name__)
 # HTTPBearer is used for "Authorization: Bearer <token>" headers
 oauth2_scheme = HTTPBearer(auto_error=False)
 
-redis_client: Redis | None = None
+_r2_storage = R2Storage()
+
+
+
+
+# Create ONE Redis client (connection pool)
+redis_client = Redis.from_url(
+    settings.redis_url,
+    decode_responses=True,  # important: returns str instead of bytes
+)
+
+async def get_redis() -> Redis:
+    return redis_client
 
 async def get_current_user(
     token: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
@@ -152,28 +167,13 @@ def get_allowed_password_changers(current_user: User = Depends(get_current_user)
         )
     return current_user
 
-
-# Depndecy Injection Services
-async def get_redis() -> Redis:
-    global redis_client
-
-    if redis_client is None:
-        redis_client = Redis.from_url(
-            settings.redis_url,
-            decode_responses=True,
-        )
-
-    return redis_client
+def get_storage() -> StorageInterface:
+    
+    if settings.storage == "r2":
+        return _r2_storage
+    return False
 
 
-from redis.asyncio import Redis
 
-# Create ONE Redis client (connection pool)
-redis_client = Redis.from_url(
-    settings.redis_url,
-    decode_responses=True,  # important: returns str instead of bytes
-)
 
-async def get_redis() -> Redis:
-    return redis_client
 
