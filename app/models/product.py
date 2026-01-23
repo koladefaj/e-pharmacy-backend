@@ -74,4 +74,4 @@ class Product(Base):
 
 
     # Inside Product model
-    # cart_items = relationship("CartItem", back_populates="product")
+    cart_items = relationship("CartItem", back_populates="product")

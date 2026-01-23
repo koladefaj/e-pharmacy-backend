@@ -98,5 +98,5 @@ class User(Base):
     )
 
     
-    # cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
+    cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
     # orders = relationship("Order",back_populates="customer",cascade="all, delete-orphan",)

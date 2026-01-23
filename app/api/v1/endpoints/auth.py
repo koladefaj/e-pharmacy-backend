@@ -27,7 +27,6 @@ async def signup(
     customer = await service.register_customer(user_data.dict())
 
     return {
-        "id": customer.id,
         "email": customer.email,
         "address": customer.address,
         "role": customer.role,

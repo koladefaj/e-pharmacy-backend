@@ -1,0 +1,203 @@
+from uuid import UUID
+from datetime import datetime, timezone
+from fastapi import HTTPException, Depends
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.sessions import get_async_session
+from app.models.cart import CartItem
+from app.crud.cart import CartCRUD
+from app.models.inventory import InventoryBatch
+
+
+class CartService:
+    CART_TTL = 1209600  # 14 days
+
+    def __init__(self, session: AsyncSession = Depends(get_async_session)):
+        self.cart_crud = CartCRUD(session=session)
+
+    async def get_cart(self, redis, db: AsyncSession, user_id: UUID):
+        """
+        Retrieve cart from Redis first, fallback to DB.
+        """
+        # 1. Try Redis
+        items = await self.cart_crud.get_redis_items(redis, user_id)
+
+        # 2. If empty, try DB and repopulate Redis
+        if not items:
+            db_items = await self.cart_crud.get_db_items(db, user_id)
+            if db_items:
+                items = [
+                    {"product_id": str(i.product_id), "quantity": i.quantity}
+                    for i in db_items
+                ]
+                await self.cart_crud.set_redis_items(
+                    redis, user_id, items, self.CART_TTL
+                )
+
+        return {
+            "items": items,
+            "total_items": sum(i["quantity"] for i in items),
+        }
+
+    async def add_item(
+        self,
+        redis,
+        db: AsyncSession,
+        user_id: UUID,
+        product_id: UUID,
+        quantity: int,
+    ):
+        """
+        Add an item to the cart (Redis-first).
+        DB sync must be handled by the router via BackgroundTasks.
+        """
+        if quantity <= 0:
+            raise HTTPException(status_code=400, detail="Quantity must be positive")
+
+        # 1. Stock validation (FEFO + timezone-safe)
+        batch = await db.scalar(
+            select(InventoryBatch)
+            .where(
+                InventoryBatch.product_id == product_id,
+                InventoryBatch.is_blocked.is_(False),
+                InventoryBatch.expiry_date > datetime.now(timezone.utc),
+                InventoryBatch.current_quantity >= quantity,
+            )
+            .order_by(InventoryBatch.expiry_date.asc())
+        )
+
+        if not batch:
+            raise HTTPException(
+                status_code=400,
+                detail="Product is out of stock or expired",
+            )
+
+        # 2. Update cart logic
+        cart = await self.get_cart(redis, db, user_id)
+        items = cart["items"]
+
+        for item in items:
+            if item["product_id"] == str(product_id):
+                item["quantity"] += quantity
+                break
+        else:
+            items.append(
+                {
+                    "product_id": str(product_id),
+                    "quantity": quantity,
+                }
+            )
+
+        # 3. Save to Redis immediately
+        await self.cart_crud.set_redis_items(
+            redis, user_id, items, self.CART_TTL
+        )
+
+        return {
+            "items": items,
+            "total_items": sum(i["quantity"] for i in items),
+        }
+
+    async def update_item(
+        self,
+        redis,
+        db: AsyncSession,
+        user_id: UUID,
+        product_id: UUID,
+        quantity: int,
+    ):
+        """
+        Update quantity of an item in the cart.
+        If quantity == 0 → remove item.
+        """
+        cart = await self.get_cart(redis, db, user_id)
+        
+        if cart["total_items"] == 0:
+            return "Cart is Empty"
+        
+        items = cart["items"]
+
+        updated_items = []
+
+        for item in items:
+            if item["product_id"] == str(product_id):
+                if quantity > 0:
+                    updated_items.append(
+                        {"product_id": str(product_id), "quantity": quantity}
+                    )
+                # quantity == 0 → skip (remove)
+            else:
+                updated_items.append(item)
+
+        await self.cart_crud.set_redis_items(
+            redis, user_id, updated_items, self.CART_TTL
+        )
+
+        return {
+            "items": updated_items,
+            "total_items": sum(i["quantity"] for i in updated_items),
+        }
+
+    async def remove_item(
+        self,
+        redis,
+        db: AsyncSession,
+        user_id: UUID,
+        product_id: UUID,
+    ):
+        """
+        Remove a single product from the cart.
+        """
+        cart = await self.get_cart(redis, db, user_id)
+        items = cart["items"]
+
+        updated_items = [
+            item for item in items
+            if item["product_id"] != str(product_id)
+        ]
+
+        await self.cart_crud.set_redis_items(
+            redis, user_id, updated_items, self.CART_TTL
+        )
+
+        return {
+            "items": updated_items,
+            "total_items": sum(i["quantity"] for i in updated_items),
+        }
+
+
+    async def sync_to_db(self, user_id: UUID, items: list, db: AsyncSession):
+        """
+        Sync Redis cart to PostgreSQL.
+        Must be called from router BackgroundTasks.
+        """
+        try:
+            await self.cart_crud.clear_db_cart(db, user_id)
+
+            for item in items:
+                db.add(
+                    CartItem(
+                        user_id=user_id,
+                        product_id=UUID(item["product_id"]),
+                        quantity=item["quantity"],
+                        price_at_add=0.0,  # Can be replaced later with batch.price
+                    )
+                )
+
+            await db.commit()
+
+
+        except Exception as e:
+            await db.rollback()
+
+
+    async def clear_all(self, redis, db: AsyncSession, user_id: UUID):
+        """
+        Clear cart from Redis and DB.
+        """
+        await self.cart_crud.delete_redis_cart(redis, user_id)
+        await self.cart_crud.clear_db_cart(db, user_id)
+
+
+cart_service = CartService()
