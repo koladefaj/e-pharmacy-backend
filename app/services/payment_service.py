@@ -7,10 +7,11 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.services.cart_service import CartService
 
 from app.models.order import Order
 from app.db.enums import OrderStatus
-from app.services.product_service import ProductService
+from app.crud.product import CRUDProduct
 
 logger = logging.getLogger(__name__)
 
@@ -140,10 +141,14 @@ class PaymentService:
                 return {"status": "already_processed"}
 
             # 🔒 Deduct inventory
-            product_service = ProductService(db)
-            await product_service.deduct_stock_for_order(
-                order=order,
-            )
+            crud_product = CRUDProduct(db)
+
+            for item in order.items:
+                await crud_product.deduct_stock_fefo(
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                )
+
 
             order.status = OrderStatus.PAID
             order.paid_at = datetime.utcnow()
@@ -151,7 +156,10 @@ class PaymentService:
 
 
             # Checkout session can be removed here
+            cart_service = CartService(db)
+            
             await redis.delete(f"checkout:{order.customer_id}")
+            await cart_service.clear_all(redis, order.customer_id)
 
         return {"status": "ok"}
 
@@ -200,10 +208,13 @@ class PaymentService:
                 return {"status": "already_refunded"}
 
             # 🔄 Restore inventory
-            product_service = ProductService(db)
-            await product_service.restore_stock_for_order(
-                order=order,
-            )
+            crud_product = CRUDProduct(db)
+
+            for item in order.items:
+                await crud_product.restock_product(
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                )
 
             order.status = OrderStatus.REFUNDED
             order.refunded_at = datetime.utcnow()

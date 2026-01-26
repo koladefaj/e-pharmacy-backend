@@ -190,6 +190,41 @@ class CRUDProduct:
         await self.session.commit()
         return True
     
+    async def restock_product(
+        self,
+        *,
+        product_id: UUID,
+        quantity: int,
+    ):
+        """
+        Restock product by adding quantity back to the MOST RECENT batches.
+        (LIFO is acceptable for refunds in pharmacies.)
+        """
+
+        stmt = (
+            select(InventoryBatch)
+            .where(
+                InventoryBatch.product_id == product_id,
+                InventoryBatch.is_blocked == False,
+            )
+            .order_by(InventoryBatch.expiry_date.desc())
+        )
+
+        result = await self.session.execute(stmt)
+        batches = result.scalars().all()
+
+        remaining = quantity
+
+        for batch in batches:
+            if remaining <= 0:
+                break
+
+            batch.current_quantity += remaining
+            remaining = 0
+
+        await self.session.commit()
+
+    
     # In your CRUD or a Service layer
     async def get_available_products(self,):
         stmt = (

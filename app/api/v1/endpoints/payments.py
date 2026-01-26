@@ -56,7 +56,7 @@ async def stripe_webhook(
         raise HTTPException(400, "Invalid signature")
 
     return await payment_service.handle_webhook(
-        event=event,
+        event=event.to_dict(),
         redis=redis,
         db_factory=AsyncSessionLocal,
     )
@@ -93,7 +93,6 @@ async def refund_order(
 async def cancel_order(
     order_id: UUID,
     db=Depends(get_async_session),
-    redis=Depends(get_redis),
 ):
     order = await db.get(Order, order_id)
 
@@ -104,7 +103,6 @@ async def cancel_order(
         await payment_service.cancel_order(
             order=order,
             db=db,
-            redis=redis,
         )
         return {"status": "cancelled", "order_id": order.id}
     except ValueError as e:
