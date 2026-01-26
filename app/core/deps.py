@@ -7,6 +7,7 @@ from jose import jwt, JWTError
 from sqlalchemy import select
 from redis.asyncio import Redis
 from app.core.config import settings
+from typing import Type, TypeVar
 
 from app.core.roles import UserRole
 from app.storage.base import StorageInterface
@@ -24,6 +25,7 @@ oauth2_scheme = HTTPBearer(auto_error=False)
 
 _r2_storage = R2Storage()
 
+T = TypeVar("T")
 
 
 
@@ -33,21 +35,12 @@ redis_client = Redis.from_url(
     decode_responses=True,  # important: returns str instead of bytes
 )
 
-async def get_redis() -> Redis:
-    return redis_client
-
 async def get_current_user(
     token: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_async_session)
 ) -> User:
     """
     Dependency that authenticates requests using a JWT.
-    
-    Workflow:
-    1. Extracts credentials from the Bearer token.
-    2. Decodes and validates the JWT using the SECRET_KEY.
-    3. Converts the string ID to a UUID object for SQLAlchemy compatibility.
-    4. Lookups the user in the database to ensure they still exist and are active.
     """
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -115,7 +108,7 @@ async def get_current_user(
 
 def get_current_customer(current_user: User = Depends(get_current_user)) -> User:
     """Require Customer role"""
-    if current_user.role != UserRole.CUSTOMER.value:
+    if current_user.role != UserRole.CUSTOMER:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You cant perform this action"
@@ -139,7 +132,7 @@ def get_current_active_pharmacist(
     current_user: User = Depends(get_current_pharmacist)
 ) -> User:
     """Require verified pharmacist or admin"""
-    if current_user.role == UserRole.PHARMACIST.value and not current_user.license_verified:
+    if current_user.role == UserRole.PHARMACIST and not current_user.license_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account is pending verification"
@@ -167,11 +160,24 @@ def get_allowed_password_changers(current_user: User = Depends(get_current_user)
         )
     return current_user
 
+async def get_redis() -> Redis:
+    return redis_client
+
+
 def get_storage() -> StorageInterface:
     
     if settings.storage == "r2":
         return _r2_storage
     return False
+
+def get_service(service_cls: Type[T]):
+    def _get(db: AsyncSession = Depends(get_async_session),) -> T:
+        return service_cls(db)
+    return  _get
+
+
+
+
 
 
 

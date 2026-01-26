@@ -6,11 +6,14 @@ from pydantic import BaseModel, Field
 # -------------------------
 # BASE RESPONSE
 # -------------------------
+
+
 class PrescriptionStatusResponse(BaseModel):
     id: UUID
     order_id: UUID
     status: str
     reviewed_at: datetime | None = None
+    rejection_reason: str | None = None
 
     class Config:
         from_attributes = True

@@ -13,6 +13,9 @@ import re
 from uuid import UUID
 
 class CRUDProduct:
+    
+    def __init__(self, session: AsyncSession):
+        self.session = session
 
     def _generate_slug(self, name: str) -> str:
         # Simple slugifier: Lowercase, replace spaces/special chars with hyphens
@@ -20,7 +23,6 @@ class CRUDProduct:
 
     async def create_new_product(
         self,
-        db: AsyncSession,
         *,
         obj_in: ProductCreate
     ):
@@ -30,13 +32,13 @@ class CRUDProduct:
         data["slug"] = self._generate_slug(data["name"])
 
         db_obj = Product(**data)
-        db.add(db_obj)
+        self.session.add(db_obj)
 
         try:
-            await db.commit()
+            await self.session.commit()
 
         except IntegrityError as e:
-            await db.rollback()
+            await self.session.rollback()
             # Check if the error is specifically about the slug/unique constraint
             if "ix_products_slug" in str(e.orig) or "unique constraint" in str(e.orig).lower():
                 raise HTTPException(
@@ -45,11 +47,11 @@ class CRUDProduct:
                 )
             raise e # Re-raise if it's a different integrity issue
         
-        await db.refresh(db_obj)        
+        await self.session.refresh(db_obj)        
         return db_obj
 
     async def get_multi_product(
-        self, db: AsyncSession, *, skip: int = 0, limit: int = 20, active: bool | None
+        self, *, skip: int = 0, limit: int = 20, active: bool | None
     ) -> list[Product]:
         """Fetch all active products and their associated inventory batches."""
         stmt = (
@@ -60,12 +62,11 @@ class CRUDProduct:
             .limit(limit)
             .order_by(Product.name.asc())
         )
-        result = await db.execute(stmt)
+        result = await self.session.execute(stmt)
         return result.scalars().all()
     
     async def get_multi_product_admin(
         self,
-        db: AsyncSession,
         *,
         skip: int = 0,
         limit: int = 20,
@@ -79,21 +80,20 @@ class CRUDProduct:
             .limit(limit)
         )
 
-        result = await db.execute(stmt)
+        result = await self.session.execute(stmt)
         return result.scalars().all()
     
 
         
     async def create_new_batch(
         self,
-        db: AsyncSession,
         *,
         product_id: UUID,
         obj_in: BatchCreate
     ) -> InventoryBatch:
         """Create a new batch record with business logic."""
         # Mix the validated data with system-required fields
-        existing = await db.execute(
+        existing = await self.session.execute(
         select(InventoryBatch).where(InventoryBatch.batch_number == obj_in.batch_number)
         )
         if existing.scalar_one_or_none():
@@ -103,7 +103,7 @@ class CRUDProduct:
         )
 
         # Inside create_new_batch...
-        product = await db.get(Product, product_id)
+        product = await self.session.get(Product, product_id)
         if not product:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
                 
@@ -116,35 +116,35 @@ class CRUDProduct:
         data["current_quantity"] = obj_in.initial_quantity # Crucial for new batches
             
         db_obj = InventoryBatch(**data)
-        db.add(db_obj)
+        self.session.add(db_obj)
 
         try:
-            await db.commit()
-            await db.refresh(db_obj)
+            await self.session.commit()
+            await self.session.refresh(db_obj)
             
             return db_obj
 
         except IntegrityError:
-            await db.rollback()
+            await self.session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Batch violates a database constraint"
             )
     
-    async def delete_batch_by_number(self, db: AsyncSession, batch_number: str) -> bool:
+    async def delete_batch_by_number(self, batch_number: str) -> bool:
     
         stmt = select(InventoryBatch).where(InventoryBatch.batch_number == batch_number)
-        result = await db.execute(stmt)
+        result = await self.session.execute(stmt)
         batch = result.scalar_one_or_none()
 
         if batch:
-            await db.delete(batch)
-            await db.commit()
+            await self.session.delete(batch)
+            await self.session.commit()
             return True
         return False
     
     async def deduct_stock_fefo(
-        self, db: AsyncSession, *, product_id: UUID, quantity: int
+        self, *, product_id: UUID, quantity: int
     ):
         """
         Deduct stock using First-Expired-First-Out (FEFO) logic.
@@ -162,7 +162,7 @@ class CRUDProduct:
             .order_by(InventoryBatch.expiry_date.asc())
         )
         
-        result = await db.execute(stmt)
+        result = await self.session.execute(stmt)
         batches = result.scalars().all()
         
         total_available = sum(b.current_quantity for b in batches)
@@ -187,11 +187,11 @@ class CRUDProduct:
                 remaining_to_deduct -= batch.current_quantity
                 batch.current_quantity = 0
                 
-        await db.commit()
+        await self.session.commit()
         return True
     
     # In your CRUD or a Service layer
-    async def get_available_products(self, db: AsyncSession):
+    async def get_available_products(self,):
         stmt = (
             select(Product)
             .join(Product.batches)
@@ -204,12 +204,13 @@ class CRUDProduct:
             .distinct()
         )
 
-        return stmt
+        result = await self.session.execute(stmt)
+
+        return result.scalars().all()
         # This only returns drugs that actually have "Sellable" stock
 
     async def get_storefront(
         self, 
-        db: AsyncSession, 
         *, 
         category: str = None, 
         search: str = None, 
@@ -232,19 +233,18 @@ class CRUDProduct:
         stmt = stmt.offset(skip).limit(limit).order_by(Product.name.asc())
         
         # 4. Execute
-        result = await db.execute(stmt)
+        result = await self.session.execute(stmt)
         return result.scalars().all()
     
-    async def delete_batch_by_number(self, db: AsyncSession, batch_number: str) -> bool:
+    async def delete_batch_by_number(self, batch_number: str) -> bool:
         """Removes a batch from the database by its unique batch number."""
         stmt = select(InventoryBatch).where(InventoryBatch.batch_number == batch_number)
-        result = await db.execute(stmt)
+        result = await self.session.execute(stmt)
         batch = result.scalar_one_or_none()
 
         if batch:
-            await db.delete(batch)
-            await db.commit()
+            await self.session.delete(batch)
+            await self.session.commit()
             return True
         return False
 
-product_crud = CRUDProduct()

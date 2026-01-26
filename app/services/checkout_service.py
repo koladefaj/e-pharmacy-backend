@@ -1,31 +1,45 @@
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 from decimal import Decimal
 from fastapi import HTTPException
-import json
-
 from app.models.order import Order
+from app.db.enums import OrderStatus
 from app.models.product import Product
 from app.models.order_item import OrderItem
 from app.models.inventory import InventoryBatch
-from app.services.cart_service import cart_service
+from app.services.cart_service import CartService
+from app.crud.order import OrderCRUD
 
 
 class CheckoutService:
     CHECKOUT_TTL = 15 * 60  # 15 minutes
+
+    def __init__(self, session: AsyncSession):
+        self.order_crud = OrderCRUD(session)
+        self.cart_service = CartService(session)
+        self.session = session
+
 
     async def checkout(
         self,
         *,
         user_id: UUID,
         redis,
-        db: AsyncSession,
     ) -> dict:
         # --------------------------------------------------
         # 1️⃣ Load cart
         # --------------------------------------------------
-        cart = await cart_service.get_cart(redis, db, user_id)
+        existing_order = await self.order_crud.get_active_order(user_id)
+
+        if existing_order:
+            raise HTTPException(
+                400,
+                "You already have an active order. Please complete or cancel it.",
+            )
+
+        cart = await self.cart_service.get_cart(redis, user_id)
 
         if not cart["items"]:
             raise HTTPException(400, "Cart is empty")
@@ -38,17 +52,17 @@ class CheckoutService:
         # --------------------------------------------------
         order = Order(
             customer_id=user_id,
-            status="CHECKOUT_STARTED",
+            status=OrderStatus.CHECKOUT_STARTED,
             total_amount=Decimal("0.00"),
         )
-        db.add(order)
-        await db.flush()  # get order.id
+        self.session.add(order)
+        await self.session.flush()  # get order.id
 
         # --------------------------------------------------
         # 3️⃣ Validate inventory + build order items
         # --------------------------------------------------
         for item in cart["items"]:
-            product = await db.get(Product, item["product_id"])
+            product = await self.session.get(Product, item["product_id"])
 
             if not product:
                 raise HTTPException(404, "Product not found")
@@ -56,12 +70,12 @@ class CheckoutService:
             if product.prescription_required:
                 requires_prescription = True
 
-            batch = await db.scalar(
+            batch = await self.session.scalar(
                 select(InventoryBatch)
                 .where(
                     InventoryBatch.product_id == product.id,
                     InventoryBatch.is_blocked.is_(False),
-                    InventoryBatch.current_quantity > 0,
+                    InventoryBatch.current_quantity >= 0,
                 )
                 .order_by(InventoryBatch.expiry_date.asc())
             )
@@ -77,7 +91,7 @@ class CheckoutService:
 
             total += unit_price * quantity
 
-            db.add(
+            self.session.add(
                 OrderItem(
                     order_id=order.id,
                     product_id=product.id,
@@ -92,12 +106,12 @@ class CheckoutService:
         order.total_amount = total
         order.requires_prescription = requires_prescription
         order.status = (
-            "AWAITING_PRESCRIPTION"
+            OrderStatus.AWAITING_PRESCRIPTION
             if requires_prescription
-            else "READY_FOR_PAYMENT"
+            else OrderStatus.READY_FOR_PAYMENT
         )
 
-        await db.commit()
+        await self.session.commit()
 
         # --------------------------------------------------
         # 5️⃣ Create Redis checkout session
@@ -111,6 +125,10 @@ class CheckoutService:
             }),
             ex=self.CHECKOUT_TTL,
         )
+
+        await self.cart_service.clear_all(redis, user_id)
+
+
 
         # --------------------------------------------------
         # 6️⃣ Response
@@ -126,5 +144,47 @@ class CheckoutService:
             ),
         }
 
+    async def resume_checkout(
+        self,
+        *,
+        user_id: UUID,
+        order_id: UUID,
+        redis,
+    ) -> dict:
+        # 1️⃣ Fetch order
+        order = await self.order_crud.get_by_id(order_id)
 
-checkout_service = CheckoutService()
+
+        if not order:
+            raise HTTPException(404, "Order not found")
+
+        if order.customer_id != user_id:
+            raise HTTPException(403, "Not authorized to resume this order")
+
+        if order.status != OrderStatus.READY_FOR_PAYMENT:
+            raise HTTPException(
+                400,
+                f"Order cannot be resumed (status={order.status})"
+            )
+
+        # 2️⃣ Create fresh Redis checkout session
+        await redis.set(
+            f"checkout:{user_id}",
+            json.dumps({
+                "order_id": str(order.id),
+                "amount": str(order.total_amount),
+                "requires_prescription": order.requires_prescription,
+            }),
+            ex=self.CHECKOUT_TTL,
+        )
+
+        # 3️⃣ Response
+        return {
+            "order_id": order.id,
+            "status": order.status,
+            "expires_in": self.CHECKOUT_TTL,
+            "next_step": "PAY",
+        }
+
+
+

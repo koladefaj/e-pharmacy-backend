@@ -1,9 +1,8 @@
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Boolean, func
+import uuid
+from sqlalchemy import String, Integer, Numeric, DateTime, ForeignKey, Boolean, func
 from sqlalchemy.dialects.postgresql import UUID
 from decimal import Decimal
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-import uuid
-from datetime import datetime, timezone
 from app.db.base import Base
 
 class InventoryBatch(Base):

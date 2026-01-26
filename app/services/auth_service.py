@@ -2,9 +2,6 @@ import logging
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.user import UserCRUD
-from fastapi import Depends, HTTPException
-from app.db.sessions import get_async_session
-from app.schemas.pharmacist import PharmacistApproveSchema
 from app.core.config import settings
 from jose import JWTError, jwt
 from app.core.roles import UserRole
@@ -17,8 +14,9 @@ from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVer
 logger = logging.getLogger(__name__)
 
 class AuthService:
-    def __init__(self, session: AsyncSession = Depends(get_async_session)):
+    def __init__(self, session: AsyncSession):
         self.user_crud = UserCRUD(session=session)
+        self.session = session
 
     async def register_customer(self, user_in: dict):
         email = user_in['email'].lower()
@@ -34,7 +32,7 @@ class AuthService:
             **user_in,
             "email": email,
             "hashed_password": hash_password(user_in['password']),
-            "role": UserRole.CUSTOMER.value
+            "role": UserRole.CUSTOMER
         }
         del user_data['password'] # Don't pass plain password to CRUD
 
@@ -47,20 +45,22 @@ class AuthService:
             refresh_token = create_refresh_token(new_customer)
 
             # 5. Commit the transaction
-            await self.user_crud.session.commit()
-            await self.user_crud.session.refresh(new_customer)
+            await self.session.commit()
+            await self.session.refresh(new_customer)
             
             logger.info(f"User registered successfully: {new_customer.id}")
 
             return {
-                "user": new_customer,
+                "user": new_customer.id,
+                "email": new_customer.email,
+                "role": new_customer.role,
                 "access_token": access_token,
                 "refresh_token": refresh_token,
                 "token_type": "bearer"
             }
 
         except Exception as e:
-            await self.user_crud.session.rollback()
+            await self.session.rollback()
             logger.error(f"Database error during registration: {str(e)}")
             raise
 
@@ -81,7 +81,7 @@ class AuthService:
             **user_in,
             "email": email,
             "hashed_password": hash_password(password),
-            "role": UserRole.PHARMACIST.value,
+            "role": UserRole.PHARMACIST,
         }
 
         try:
@@ -89,14 +89,14 @@ class AuthService:
             new_pharmacist = await self.user_crud.create_user(user_data)
 
             # 4. Commit
-            await self.user_crud.session.commit()
-            await self.user_crud.session.refresh(new_pharmacist)
+            await self.session.commit()
+            await self.session.refresh(new_pharmacist)
 
             logger.info(f"Pharmacist registered: {new_pharmacist.id}")
             return new_pharmacist
 
         except Exception as e:
-            await self.user_crud.session.rollback()
+            await self.session.rollback()
             logger.error(f"Database error during pharmacist registration: {str(e)}")
             raise
 
@@ -128,7 +128,7 @@ class AuthService:
             "refresh_token": create_refresh_token(user),
             "token_type": "bearer",
             "user_email": user.email,
-            "user_role:": user.role,  # Often helpful to return user info on login
+            "user_role:": user.role.value,  # Often helpful to return user info on login
         }
          
 

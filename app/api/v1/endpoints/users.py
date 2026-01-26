@@ -1,12 +1,10 @@
 import logging
-from fastapi import Depends, APIRouter, Request, Body
+from fastapi import Depends, APIRouter, Request
 from app.models.user import User
 from starlette import status
-from app.schemas.user import RegisterCustomerRequest, CreatePharmacistRequest, LoginRequest, ChangePasswordRequest
+from app.schemas.user import ChangePasswordRequest
 from app.services.user_service import UserService
-from app.core.deps import get_current_customer, get_allowed_password_changers, get_current_admin
-from app.db.sessions import get_async_session
-from app.schemas.user import RefreshTokenRequest
+from app.core.deps import get_allowed_password_changers, get_service
 from app.core.limiter import limiter
 
 # Initialize logger for security and audit events
@@ -20,8 +18,8 @@ router = APIRouter( prefix="/me", tags=["User"],)
 async def update_password(
     request: Request,
     password_data: ChangePasswordRequest, 
+    service: UserService = Depends(get_service(UserService)),
     current_user: User = Depends(get_allowed_password_changers),
-    service: UserService = Depends()
 ):
     """
     Allows an authenticated user to change their password.

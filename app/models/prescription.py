@@ -1,18 +1,12 @@
 import uuid
-from enum import Enum
 from datetime import datetime
 
-from sqlalchemy import String, Enum as SAEnum, DateTime, ForeignKey, func, Text
+from sqlalchemy import String, Enum, DateTime, ForeignKey, func, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
+from app.db.enums import PrescriptionStatus
 
 from app.db.base import Base
-
-
-class PrescriptionStatus(str, Enum):
-    PENDING = "PENDING"
-    APPROVED = "APPROVED"
-    REJECTED = "REJECTED"
 
 
 class Prescription(Base):
@@ -50,7 +44,7 @@ class Prescription(Base):
     )
 
     status: Mapped[PrescriptionStatus] = mapped_column(
-        SAEnum(PrescriptionStatus),
+        Enum(PrescriptionStatus),
         default=PrescriptionStatus.PENDING,
         nullable=False,
     )

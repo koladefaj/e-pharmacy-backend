@@ -1,17 +1,12 @@
 import uuid
-from enum import Enum
-from sqlalchemy import String, Integer, Boolean, Text, Enum as SAEnum
+from sqlalchemy import String, Integer, Boolean, Text, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
-
 from app.db.base import Base
+from app.db.enums import CategoryEnum
 
 
-class CategoryEnum(str, Enum):
-    SUPPLEMENT = "supplement"
-    OTC = "otc"
-    MEDICAL_DEVICE = "medical_device"
-    PRESCRIPTION = "prescription"
+
 
 class Product(Base):
     __tablename__ = "products"
@@ -35,7 +30,7 @@ class Product(Base):
     )
 
     category: Mapped[CategoryEnum] = mapped_column(
-        SAEnum(CategoryEnum),
+        Enum(CategoryEnum),
         nullable=False,
         index=True,
         

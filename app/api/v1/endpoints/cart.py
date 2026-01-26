@@ -4,14 +4,12 @@ from uuid import UUID
 from fastapi import Depends, APIRouter, BackgroundTasks
 from starlette import status
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.schemas.cart import CartItemCreate
-from app.core.deps import get_current_customer, get_redis
-from app.services.checkout_service import checkout_service
-from app.db.sessions import get_async_session
-from app.services.cart_service import cart_service
+from app.core.deps import get_current_customer, get_redis, get_service
+from app.services.checkout_service import CheckoutService
+from app.services.cart_service import CartService
 
 
 logger = logging.getLogger(__name__)
@@ -29,15 +27,14 @@ async def add_to_cart(
     item_in: CartItemCreate,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_customer),
+    service: CartService = Depends(get_service(CartService)),
     redis: Redis = Depends(get_redis),
-    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Add a product to the Redis-backed shopping cart.
     """
-    cart = await cart_service.add_item(
+    cart = await service.add_item(
         redis=redis,
-        db=db,
         user_id=current_user.id,
         product_id=item_in.product_id,
         quantity=item_in.quantity,
@@ -45,10 +42,9 @@ async def add_to_cart(
 
     # 🔑 Background DB sync (SAFE)
     background_tasks.add_task(
-        cart_service.sync_to_db,
+        service.sync_to_db,
         user_id=current_user.id,
         items=cart["items"],
-        db=db
     )
 
     return {"message": "Cart updated", "cart": cart}
@@ -60,13 +56,13 @@ async def add_to_cart(
 @router.get("/cart", status_code=status.HTTP_200_OK)
 async def view_cart(
     current_user: User = Depends(get_current_customer),
+    service: CartService = Depends(get_service(CartService)),
     redis: Redis = Depends(get_redis),
-    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Retrieve the current user's cart.
     """
-    return await cart_service.get_cart(redis, db, current_user.id)
+    return await service.get_cart(redis, current_user.id)
 
 
 # -------------------------------
@@ -76,17 +72,16 @@ async def view_cart(
 async def update_cart_item(
     item_in: CartItemCreate,
     background_tasks: BackgroundTasks,
+    service: CartService = Depends(get_service(CartService)),
     current_user: User = Depends(get_current_customer),
     redis: Redis = Depends(get_redis),
-    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Update a product quantity.
     If quantity is 0, the item is removed.
     """
-    updated_cart = await cart_service.update_item(
+    updated_cart = await service.update_item(
         redis=redis,
-        db=db,
         user_id=current_user.id,
         product_id=item_in.product_id,
         quantity=item_in.quantity,
@@ -94,9 +89,8 @@ async def update_cart_item(
 
     # 🔑 Background DB sync (SAFE)
     background_tasks.add_task(
-        cart_service.sync_to_db,
+        service.sync_to_db,
         user_id=current_user.id,
-        db=db,
         items=updated_cart["items"],
     )
 
@@ -117,24 +111,22 @@ async def remove_cart_item(
     product_id: UUID,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_customer),
+    service: CartService = Depends(get_service(CartService)),
     redis: Redis = Depends(get_redis),
-    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Remove a single product from the cart.
     """
-    updated_cart = await cart_service.remove_item(
+    updated_cart = await service.remove_item(
         redis=redis,
-        db=db,
         user_id=current_user.id,
         product_id=product_id,
     )
 
     background_tasks.add_task(
-        cart_service.sync_to_db,
+        service.sync_to_db,
         user_id=current_user.id,
         items=updated_cart["items"],
-        db=db,
     )
 
     # 204 → NO RESPONSE BODY
@@ -148,19 +140,18 @@ async def remove_cart_item(
 async def clear_cart(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_customer),
+    service: CartService = Depends(get_service(CartService)),
     redis: Redis = Depends(get_redis),
-    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Empty the cart completely.
     """
-    await cart_service.clear_all(redis, db, current_user.id)
+    await service.clear_all(redis, current_user.id)
 
     background_tasks.add_task(
-        cart_service.sync_to_db,
+        service.sync_to_db,
         user_id=current_user.id,
         items=[],
-        db=db,
     )
 
     return {"message": "Cart cleared"}
@@ -170,11 +161,26 @@ async def clear_cart(
 @router.post("/checkout")
 async def checkout(
     redis: Redis = Depends(get_redis),
-    db: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(get_current_customer),
+    service: CheckoutService = Depends(get_service(CheckoutService)),
+    current_user: User = Depends(get_current_customer)
 ):
-    return await checkout_service.checkout(
-        db=db,
+    return await service.checkout(
         redis=redis,
         user_id=current_user.id
+    )
+
+@router.post("/resume/{order_id}")
+async def resume_checkout(
+    order_id: UUID,
+    service: CheckoutService = Depends(get_service(CheckoutService)),
+    current_user=Depends(get_current_customer),
+    redis: Redis = Depends(get_redis),
+):
+    """
+    Resume checkout after prescription approval or expired session.
+    """
+    return await service.resume_checkout(
+        user_id=current_user.id,
+        order_id=order_id,
+        redis=redis,
     )

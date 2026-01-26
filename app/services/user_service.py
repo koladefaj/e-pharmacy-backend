@@ -2,23 +2,19 @@ import logging
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.user import UserCRUD
-from fastapi import Depends, HTTPException
-from app.db.sessions import get_async_session
-from app.schemas.pharmacist import PharmacistApproveSchema
-from app.core.config import settings
-from jose import JWTError, jwt
 from app.core.roles import UserRole
-
-from app.models.user import User
-from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
+from app.core.security import hash_password, verify_password
 from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
 
 # Initialize logger for tracking auth events
 logger = logging.getLogger(__name__)
 
 class UserService:
-    def __init__(self, session: AsyncSession = Depends(get_async_session)):
-        self.user_crud = UserCRUD(session=session)
+
+    def __init__(self, session: AsyncSession):
+
+        self.user_crud = UserCRUD(session)
+        self.session = session
     
     async def delete_user_account(self, user_id: UUID) -> None:
         """
@@ -30,7 +26,7 @@ class UserService:
         if not user:
             raise AuthenticationFailed("User not found.")
         
-        if user.role != UserRole.CUSTOMER.value:
+        if user.role != UserRole.CUSTOMER:
             raise NotAuthorized("You cannot perform this action")
         
         # 2. Soft delete / Anonymize
@@ -40,10 +36,10 @@ class UserService:
         
         try:
             # 3. Commit
-            await self.user_crud.session.commit()
+            await self.session.commit()
             logger.info(f"User account {user_id} deactivated and anonymized.")
         except Exception as e:
-            await self.user_crud.session.rollback()
+            await self.session.rollback()
             logger.error(f"Failed to delete user {user_id}: {str(e)}")
             raise
 
@@ -73,11 +69,12 @@ class UserService:
 
         try:
             # 5. Commit
-            await self.user_crud.session.commit()
+            await self.session.commit()
             logger.info(f"Password updated successfully for user {user_id}")
         except Exception as e:
-            await self.user_crud.session.rollback()
+            await self.session.rollback()
             logger.error(f"Error updating password for {user_id}: {str(e)}")
             raise
+
 
 

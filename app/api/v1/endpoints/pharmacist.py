@@ -2,11 +2,9 @@ import logging
 from fastapi import Depends, APIRouter
 from app.models.user import User
 from uuid import UUID
-from fastapi import APIRouter, Depends
-from uuid import UUID
 from app.services.product_service import ProductService
 from app.schemas.product import BatchCreate
-from app.core.deps import get_current_active_pharmacist
+from app.core.deps import get_current_active_pharmacist, get_service
 
 
 logger = logging.getLogger(__name__)
@@ -20,8 +18,8 @@ router = APIRouter( prefix="/pharmacist", tags=["Pharmacist"])
 async def add_inventory_batch(
     product_id: UUID,
     body: BatchCreate,
-    service: ProductService = Depends(),
-    current_user: User = Depends(get_current_active_pharmacist)
+    service: ProductService = Depends(get_service(ProductService)),
+    current_user: User = Depends(get_current_active_pharmacist),
 ):
     """Pharmacist: Add new stock batch to a product."""
     batch = await service.create_batch(product_id=product_id, batch_in=body)

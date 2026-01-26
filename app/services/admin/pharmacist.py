@@ -4,14 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.user import UserCRUD
 from fastapi import Depends, HTTPException
 from app.db.sessions import get_async_session
+from starlette import status
 from app.schemas.pharmacist import PharmacistApproveSchema
-from app.core.config import settings
-from jose import JWTError, jwt
 from app.core.roles import UserRole
-
-from app.models.user import User
-from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
-from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
+from app.core.exceptions import AuthenticationFailed
 
 # Initialize logger for tracking auth events
 logger = logging.getLogger(__name__)
@@ -19,6 +15,7 @@ logger = logging.getLogger(__name__)
 class AdminPharmacistService:
     def __init__(self, session: AsyncSession = Depends(get_async_session)):
         self.user_crud = UserCRUD(session=session)
+        self.session = session
     
     async def deactivate_pharmacist_by_email(self, email: str) -> None:
         """
@@ -42,11 +39,11 @@ class AdminPharmacistService:
 
         try:
             # 3. Commit
-            await self.user_crud.session.commit()
+            await self.session.commit()
 
 
         except Exception as e:
-            await self.user_crud.session.rollback()
+            await self.session.rollback()
             logger.error(f"Error deactivating pharmacist {email}: {str(e)}")
             raise
         
@@ -58,11 +55,14 @@ class AdminPharmacistService:
         pharmacist = await self.user_crud.get_by_id(pharmacist_id)
         
         # 2. Validation
-        if not pharmacist or pharmacist.role != UserRole.PHARMACIST.value:
+        if not pharmacist or pharmacist.role != UserRole.PHARMACIST:
             raise HTTPException(status_code=404, detail="Pharmacist not found")
         
         if pharmacist.license_verified == True:
-            return "Pharmacist already verified"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Pharmacist already approved"
+            )
 
         # 3. Action
         updated_pharmacist = await self.user_crud.verify_pharmacist( 
@@ -72,6 +72,7 @@ class AdminPharmacistService:
 
         # 4. Audit Log
         logger.info(f"AUDIT: Pharmacist {pharmacist.email} approved by Admin {admin_email}")
+
         
         return updated_pharmacist
 

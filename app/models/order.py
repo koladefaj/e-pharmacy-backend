@@ -1,12 +1,13 @@
-from sqlalchemy import Numeric, ForeignKey, DateTime, String, Boolean, func
+import uuid
+
+from sqlalchemy import Numeric, ForeignKey, DateTime, String, Boolean, func, Enum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import UUID
-import uuid
-
 from app.db.base import Base
-from app.db.enums import order_status_enum
+from app.db.enums import OrderStatus
+
 
 
 class Order(Base):
@@ -30,9 +31,8 @@ class Order(Base):
         nullable=False,
     )
 
-    status: Mapped[str] = mapped_column(
-        order_status_enum,
-        default="CREATED",
+    status: Mapped[OrderStatus] = mapped_column(
+        Enum(OrderStatus, name="order_status_enum"),
         nullable=False,
     )
 

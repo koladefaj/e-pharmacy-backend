@@ -13,7 +13,7 @@ from app.api.v1.router import router as v1_router
 from app.core.config import settings
 from app.core.logging import setup_logging, request_id_var
 from app.core.limiter import limiter
-# from app.core.deps import get_redis
+from app.core.deps import get_redis
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
@@ -131,7 +131,7 @@ def health_check(request: Request):
         "environment": settings.environment,
     }
 
-# @app.get("/redis-health")
-# async def redis_health(redis=Depends(get_redis)):
-#     await redis.set("health", "ok", ex=5)
-#     return {"redis": await redis.get("health")}
+@app.get("/redis-health")
+async def redis_health(redis=Depends(get_redis)):
+    await redis.set("health", "ok", ex=5)
+    return {"redis": await redis.get("health")}

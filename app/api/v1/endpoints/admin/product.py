@@ -3,16 +3,10 @@ from fastapi import Depends, APIRouter, Request, status
 from starlette import status
 from app.models.user import User
 from typing import List
-from uuid import UUID
-from starlette import status
-from app.core.deps import get_current_admin
-from fastapi import APIRouter, Depends, status
+from app.core.deps import get_current_admin, get_service
 from uuid import UUID
 from app.services.admin.product_service import AdminProductService
-from app.schemas.product import ProductWithBatches, ProductCreate
-from app.core.deps import get_current_admin
-from app.models.user import User
-from app.schemas.product import ProductRead
+from app.schemas.product import ProductWithBatches, ProductCreate, ProductRead
 
 
 from app.schemas.product import (
@@ -30,7 +24,7 @@ router = APIRouter(prefix="/product", tags=["Admin"])
 @router.post("/create", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
 async def create_new_product(
     body: ProductCreate,
-    service: AdminProductService = Depends(), # Service handles DB session
+    service: AdminProductService = Depends(get_service(AdminProductService)), # Service handles DB session
     current_admin: User = Depends(get_current_admin)
 ):
     """Admin only: Add a new drug definition to the Catalog."""
@@ -41,7 +35,7 @@ async def create_new_product(
 async def list_products_admin(
     skip: int = 0,
     limit: int = 20,
-    service: AdminProductService = Depends(),
+    service: AdminProductService = Depends(get_service(AdminProductService)),
     current_admin: User = Depends(get_current_admin)
 ):
     """
@@ -55,7 +49,7 @@ async def list_products_admin(
 @router.patch("/{product_id}/toggle-active")
 async def toggle_product_active(
     product_id: UUID,
-    service: AdminProductService = Depends(),
+    service: AdminProductService = Depends(get_service(AdminProductService)),
     current_user: User = Depends(get_current_admin)
 ):
 
@@ -64,7 +58,7 @@ async def toggle_product_active(
 @router.delete("/inventory/batches/{batch_number}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_batch(
     batch_number: str,
-    service: AdminProductService = Depends(),
+    service: AdminProductService = Depends(get_service(AdminProductService)),
     current_admin: User = Depends(get_current_admin)
 ):
     """Admin only: Permanently remove an inventory batch."""

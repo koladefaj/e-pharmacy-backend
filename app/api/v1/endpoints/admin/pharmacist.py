@@ -6,14 +6,9 @@ from typing import List
 from uuid import UUID
 from app.services.auth_service import AuthService
 from app.services.admin.pharmacist import AdminPharmacistService
-from starlette import status
 from app.schemas.user import CreatePharmacistRequest
-from app.core.deps import get_current_admin
-from fastapi import APIRouter, Depends, status
-from uuid import UUID
+from app.core.deps import get_current_admin, get_service
 from app.schemas.pharmacist import PharmacistApproveSchema, PharmacistRead
-from app.core.deps import get_current_admin
-from app.models.user import User
 from app.core.limiter import limiter
 
 
@@ -31,7 +26,7 @@ router = APIRouter(prefix="/pharmacist", tags=["Admin"])
 async def create_pharmacist(
     request: Request,
     user_data: CreatePharmacistRequest,
-    service: AuthService = Depends(),
+    service: AuthService = Depends(get_service(AuthService)),
     current_admin: User = Depends(get_current_admin)
 ):
     """
@@ -55,7 +50,7 @@ async def create_pharmacist(
 async def admin_delete_pharmacist(
     email: str,
     current_admin: User = Depends(get_current_admin), # Protected admin dependency
-    service: AdminPharmacistService = Depends()
+    service: AdminPharmacistService = Depends(get_service(AuthService))
 ):
     """
     Admin-only: Deactivate a pharmacist account via email.
@@ -71,7 +66,7 @@ async def admin_delete_pharmacist(
 async def list_pharmacists(
     skip: int = 0,
     limit: int = 10,
-    service: AdminPharmacistService = Depends(),
+    service: AdminPharmacistService = Depends(get_service(AdminPharmacistService)),
     current_admin: User = Depends(get_current_admin)
 ):
     """Admin only: List all pharmacists for moderation."""
@@ -81,7 +76,7 @@ async def list_pharmacists(
 async def approve_pharmacist(
     pharmacist_id: UUID,
     body: PharmacistApproveSchema,
-    service: AdminPharmacistService = Depends(),
+    service: AdminPharmacistService = Depends(get_service(AdminPharmacistService)),
     current_admin: User = Depends(get_current_admin)
 ):
     """Admin only: Approve a pharmacist."""

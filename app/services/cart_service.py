@@ -1,10 +1,8 @@
 from uuid import UUID
 from datetime import datetime, timezone
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.sessions import get_async_session
 from app.models.cart import CartItem
 from app.crud.cart import CartCRUD
 from app.models.inventory import InventoryBatch
@@ -13,10 +11,11 @@ from app.models.inventory import InventoryBatch
 class CartService:
     CART_TTL = 1209600  # 14 days
 
-    def __init__(self, session: AsyncSession = Depends(get_async_session)):
-        self.cart_crud = CartCRUD(session=session)
+    def __init__(self, session: AsyncSession):
+        self.cart_crud = CartCRUD(session)
+        self.session = session
 
-    async def get_cart(self, redis, db: AsyncSession, user_id: UUID):
+    async def get_cart(self, redis, user_id: UUID):
         """
         Retrieve cart from Redis first, fallback to DB.
         """
@@ -25,7 +24,7 @@ class CartService:
 
         # 2. If empty, try DB and repopulate Redis
         if not items:
-            db_items = await self.cart_crud.get_db_items(db, user_id)
+            db_items = await self.cart_crud.get_db_items(user_id)
             if db_items:
                 items = [
                     {"product_id": str(i.product_id), "quantity": i.quantity}
@@ -43,7 +42,6 @@ class CartService:
     async def add_item(
         self,
         redis,
-        db: AsyncSession,
         user_id: UUID,
         product_id: UUID,
         quantity: int,
@@ -56,7 +54,7 @@ class CartService:
             raise HTTPException(status_code=400, detail="Quantity must be positive")
 
         # 1. Stock validation (FEFO + timezone-safe)
-        batch = await db.scalar(
+        batch = await self.session.scalar(
             select(InventoryBatch)
             .where(
                 InventoryBatch.product_id == product_id,
@@ -74,7 +72,7 @@ class CartService:
             )
 
         # 2. Update cart logic
-        cart = await self.get_cart(redis, db, user_id)
+        cart = await self.get_cart(redis, user_id)
         items = cart["items"]
 
         for item in items:
@@ -102,7 +100,6 @@ class CartService:
     async def update_item(
         self,
         redis,
-        db: AsyncSession,
         user_id: UUID,
         product_id: UUID,
         quantity: int,
@@ -111,7 +108,7 @@ class CartService:
         Update quantity of an item in the cart.
         If quantity == 0 → remove item.
         """
-        cart = await self.get_cart(redis, db, user_id)
+        cart = await self.get_cart(redis, user_id)
         
         if cart["total_items"] == 0:
             return "Cart is Empty"
@@ -142,14 +139,13 @@ class CartService:
     async def remove_item(
         self,
         redis,
-        db: AsyncSession,
         user_id: UUID,
         product_id: UUID,
     ):
         """
         Remove a single product from the cart.
         """
-        cart = await self.get_cart(redis, db, user_id)
+        cart = await self.get_cart(redis, user_id)
         items = cart["items"]
 
         updated_items = [
@@ -167,16 +163,16 @@ class CartService:
         }
 
 
-    async def sync_to_db(self, user_id: UUID, items: list, db: AsyncSession):
+    async def sync_to_db(self, user_id: UUID, items: list,):
         """
         Sync Redis cart to PostgreSQL.
         Must be called from router BackgroundTasks.
         """
         try:
-            await self.cart_crud.clear_db_cart(db, user_id)
+            await self.cart_crud.clear_db_cart(user_id)
 
             for item in items:
-                db.add(
+                self.session.add(
                     CartItem(
                         user_id=user_id,
                         product_id=UUID(item["product_id"]),
@@ -185,19 +181,19 @@ class CartService:
                     )
                 )
 
-            await db.commit()
+            await self.session.commit()
 
 
         except Exception as e:
-            await db.rollback()
+            await self.session.rollback()
 
 
-    async def clear_all(self, redis, db: AsyncSession, user_id: UUID):
+    async def clear_all(self, redis, user_id: UUID):
         """
         Clear cart from Redis and DB.
         """
         await self.cart_crud.delete_redis_cart(redis, user_id)
-        await self.cart_crud.clear_db_cart(db, user_id)
+        await self.cart_crud.clear_db_cart(user_id)
 
 
-cart_service = CartService()
+

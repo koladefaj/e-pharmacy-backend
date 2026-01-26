@@ -1,18 +1,19 @@
-from uuid import UUID
-import uuid
+from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.models.order import Order
 from app.core.deps import get_storage
 from sqlalchemy import select
 from app.services.validation_service import validate_file_content
-from app.models.prescription import Prescription, PrescriptionStatus
+from app.models.prescription import Prescription
+from app.db.enums import PrescriptionStatus, OrderStatus
 
 
 class PrescriptionService:
-    def __init__(self):
+    def __init__(self, session: AsyncSession):
         self.storage = get_storage()
+        self.session = session
 
     async def upload_prescription(
         self,
@@ -20,11 +21,10 @@ class PrescriptionService:
         file: UploadFile,
         user_id: UUID,
         order_id: UUID,
-        db: AsyncSession,
     ) -> Prescription:
         await validate_file_content(file)
 
-        file_id = str(uuid.uuid4())
+        file_id = str(uuid4())
         ext = "." + file.filename.split(".")[-1].lower()
         storage_key = f"prescriptions/{file_id}{ext}"
 
@@ -44,32 +44,30 @@ class PrescriptionService:
             status=PrescriptionStatus.PENDING,
         )
 
-        db.add(prescription)
-        await db.commit()
-        await db.refresh(prescription)
+        self.session.add(prescription)
+        await self.session.commit()
+        await self.session.refresh(prescription)
 
         return prescription
 
     async def list_pending(
         self,
-        db: AsyncSession,
     ):
-        result = await db.execute(
+        result = await self.session.execute(
             select(Prescription)
             .where(Prescription.status == PrescriptionStatus.PENDING)
             .order_by(Prescription.created_at.asc())
         )
         return result.scalars().all()
 
-        
+
 
     async def get_prescription_file_url(
         self,
         *,
         prescription_id: UUID,
-        db: AsyncSession,
     ):
-        prescription = await db.get(Prescription, prescription_id)
+        prescription = await self.session.get(Prescription, prescription_id)
 
         if not prescription:
             raise HTTPException(404, "Prescription not found")
@@ -79,15 +77,37 @@ class PrescriptionService:
         )
 
 
+    async def get_status_for_customer(
+        self,
+        *,
+        order_id: UUID,
+        user_id: UUID,
+    ) -> Prescription:
+        """
+        Fetch prescription status for a customer by order ID.
+        """
+        prescription = await self.session.scalar(
+            select(Prescription).where(
+                Prescription.order_id == order_id,
+                Prescription.user_id == user_id,
+            )
+        )
+
+        if not prescription:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+
+        return prescription
+
+
+
 
     async def approve(
         self,
         *,
         prescription_id: UUID,
         pharmacist_id: UUID,
-        db: AsyncSession,
     ) -> Prescription:
-        prescription = await db.get(Prescription, prescription_id)
+        prescription = await self.session.get(Prescription, prescription_id)
 
         if not prescription:
             raise HTTPException(404, "Prescription not found")
@@ -95,15 +115,24 @@ class PrescriptionService:
         if prescription.status != PrescriptionStatus.PENDING:
             raise HTTPException(400, "Prescription already reviewed")
 
+        
         prescription.status = PrescriptionStatus.APPROVED
         prescription.reviewed_by = pharmacist_id
         prescription.reviewed_at = datetime.now(timezone.utc)
         prescription.rejection_reason = None
 
-        await db.commit()
-        await db.refresh(prescription)
+        
+        order = await self.session.get(Order, prescription.order_id)
+        if not order:
+            raise HTTPException(500, "Order linked to prescription not found")
+
+        order.status = OrderStatus.READY_FOR_PAYMENT
+
+        await self.session.commit()
+        await self.session.refresh(prescription)
 
         return prescription
+
 
     async def reject(
         self,
@@ -111,9 +140,8 @@ class PrescriptionService:
         prescription_id: UUID,
         pharmacist_id: UUID,
         reason: str,
-        db: AsyncSession,
     ) -> Prescription:
-        prescription = await db.get(Prescription, prescription_id)
+        prescription = await self.session.get(Prescription, prescription_id)
 
         if not prescription:
             raise HTTPException(404, "Prescription not found")
@@ -126,10 +154,17 @@ class PrescriptionService:
         prescription.reviewed_at = datetime.now(timezone.utc)
         prescription.rejection_reason = reason
 
-        await db.commit()
-        await db.refresh(prescription)
+
+        order = await self.session.get(Order, prescription.order_id)
+        if not order:
+            raise HTTPException(500, "Order linked to prescription not found")
+
+        order.status = OrderStatus.CANCELLED
+
+        await self.session.commit()
+        await self.session.refresh(prescription)
 
         return prescription
 
 
-prescription_service = PrescriptionService()
+

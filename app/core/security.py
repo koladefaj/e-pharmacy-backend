@@ -34,7 +34,7 @@ def create_access_token(user) -> str:
         "sub": str(user.id), 
         "type": "access",
         "email": str(user.email),
-        "role": user.role,
+        "role": user.role.value,
         "iat": now, 
         "exp": expire
     }
@@ -59,7 +59,7 @@ def create_refresh_token(user) -> str:
         "sub": str(user.id), 
         "type": "refresh",
         "email": str(user.email),
-        "role": user.role, 
+        "role": user.role.value, 
         "iat": now,
         "exp": expire
     }

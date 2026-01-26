@@ -7,11 +7,13 @@ from sqlalchemy import (
     Date,
     DateTime,
     Boolean,
+    text,
     func,
+    Enum
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.enums import user_role_enum
+from app.db.enums import UserRole
 from app.db.base import Base
 
 
@@ -55,10 +57,10 @@ class User(Base):
         nullable=False
     )
 
-    role: Mapped[str] = mapped_column(
-        user_role_enum,
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_roles"),
         nullable=False,
-        default="customer",
+        default=UserRole.CUSTOMER,
     )
 
     # Pharmacist-specific (employees, not owners)

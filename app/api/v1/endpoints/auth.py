@@ -1,9 +1,10 @@
 import logging
-from fastapi import Depends, APIRouter, Request, Body
+from fastapi import Depends, APIRouter, Request
 from starlette import status
 from app.schemas.user import RegisterCustomerRequest, LoginRequest
 from app.services.auth_service import AuthService
 from app.schemas.user import RefreshTokenRequest
+from app.core.deps import get_service
 from app.core.limiter import limiter
 
 # Initialize logger for security and audit events
@@ -16,7 +17,7 @@ router = APIRouter( prefix="/auth", tags=["auth"],)
 async def signup(
     request: Request,
     user_data: RegisterCustomerRequest,
-    service: AuthService = Depends()
+    service: AuthService = Depends(get_service(AuthService))
 ):
     """
     Customer Registration Endpoint.
@@ -24,16 +25,8 @@ async def signup(
     
     """
 
-    customer = await service.register_customer(user_data.dict())
+    return await service.register_customer(user_data.dict())
 
-    return {
-        "email": customer.email,
-        "address": customer.address,
-        "role": customer.role,
-        "access_token": customer.access_token,
-        "refresh": customer.refresh_token,
-        "message": "Sign Up successful"
-    }
 
 
 @router.post("/login")
@@ -41,7 +34,7 @@ async def signup(
 async def login(
     request: Request,
     login_data: LoginRequest, # Pydantic model with email and password
-    service: AuthService = Depends()
+    service: AuthService = Depends(get_service(AuthService))
 ):
     """
     Authenticate user and return JWT tokens.
@@ -55,7 +48,7 @@ async def login(
 @router.post("/refresh")
 async def refresh_token(
     payload: RefreshTokenRequest,
-    service: AuthService = Depends()
+    service: AuthService = Depends(get_service(AuthService))
 ):
     """
     Issue a new access token using a valid refresh token.

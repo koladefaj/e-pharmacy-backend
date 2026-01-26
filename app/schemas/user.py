@@ -1,8 +1,7 @@
-from datetime import date
 import uuid
-from typing import Optional
 import re
-
+from datetime import date
+from typing import Optional
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 
 # Regex for international phone numbers: +[CountryCode][Number]

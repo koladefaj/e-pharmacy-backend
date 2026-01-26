@@ -1,19 +1,16 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.product import Product
 from uuid import UUID
-from fastapi import Depends, HTTPException
-from app.db.sessions import get_async_session
-from app.crud.product import product_crud
-from app.schemas.product import ProductCreate, BatchCreate
+from app.crud.product import CRUDProduct
+from app.schemas.product import BatchCreate
 
 class ProductService:
-    def __init__(self, db: AsyncSession = Depends(get_async_session)):
-        self.db = db
+
+    def __init__(self, session: AsyncSession):
+        self.product_crud = CRUDProduct(session)
 
     async def create_batch(self, product_id: UUID, batch_in: BatchCreate):
         """Pharmacist workflow: Adding a specific batch to a product"""
-        batch = await product_crud.create_new_batch(
-            self.db, 
+        batch = await self.product_crud.create_new_batch(
             product_id=product_id, 
             obj_in=batch_in
         )
@@ -21,8 +18,10 @@ class ProductService:
         return batch
     
     
-    async def get_catalog(self, category: str = None, search: str = None, skip: int = 0, limit: int = 20):
+    async def get_catalog(self, category: str = None, search: str = None, skip: int = 0, limit: int = 20,):
         """Fetch filtered storefront products."""
-        return await product_crud.get_storefront(
-            self.db, category=category, search=search, skip=skip, limit=limit
+        return await self.product_crud.get_storefront(
+            category=category, search=search, skip=skip, limit=limit
         )
+
+

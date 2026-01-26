@@ -47,20 +47,18 @@ class CartCRUD:
     # -----------------------
     async def get_db_items(
         self,
-        session: AsyncSession,
         user_id: UUID,
     ) -> List[CartItem]:
-        result = await session.execute(
+        result = await self.session.execute(
             select(CartItem).where(CartItem.user_id == user_id)
         )
         return result.scalars().all()
 
     async def clear_db_cart(
         self,
-        session: AsyncSession,
         user_id: UUID,
     ):
-        await session.execute(
+        await self.session.execute(
             delete(CartItem).where(CartItem.user_id == user_id)
         )
         
