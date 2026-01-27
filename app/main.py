@@ -20,15 +20,13 @@ from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVer
 
 
 
-# --------------------------------------------------
+
 # LOGGING
-# --------------------------------------------------
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------
-# APP INITIALIZATION (ONLY ONCE ✅)
-# --------------------------------------------------
+
+# APP INITIALIZATION 
 allowed_hosts = os.getenv("ALLOWED_HOSTS", "*").split(",")
 
 app = FastAPI(
@@ -52,9 +50,8 @@ async def not_authorized_handler(request: Request, exc: NotAuthorized):
         content={"detail": str(exc)},
     )
 
-# --------------------------------------------------
+
 # ROUTERS
-# --------------------------------------------------
 app.include_router(v1_router, prefix="/api/v1")
 
 
@@ -69,15 +66,13 @@ async def universal_exception_handler(request: Request, exc: Exception):
         content={"detail": "An unexpected error occurred."}
     )
 
-# --------------------------------------------------
+
 # RATE LIMITING
-# --------------------------------------------------
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# --------------------------------------------------
+
 # SECURITY MIDDLEWARES
-# --------------------------------------------------
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=allowed_hosts,
@@ -95,9 +90,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --------------------------------------------------
+
 # REQUEST TRACING & SECURITY HEADERS
-# --------------------------------------------------
 @app.middleware("http")
 async def security_and_tracing_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
@@ -120,9 +114,8 @@ async def security_and_tracing_middleware(request: Request, call_next):
     finally:
         request_id_var.reset(token)
 
-# --------------------------------------------------
+
 # HEALTH CHECKS
-# --------------------------------------------------
 @app.get("/health", status_code=200)
 def health_check(request: Request):
     return {

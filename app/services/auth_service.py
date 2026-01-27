@@ -9,6 +9,8 @@ from app.core.roles import UserRole
 from app.models.user import User
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
+from app.services.notification.notification_service import NotificatioService
+from fastapi import BackgroundTasks
 
 # Initialize logger for tracking auth events
 logger = logging.getLogger(__name__)
@@ -17,8 +19,10 @@ class AuthService:
     def __init__(self, session: AsyncSession):
         self.user_crud = UserCRUD(session=session)
         self.session = session
+        self.notification_service = NotificatioService()
+    
 
-    async def register_customer(self, user_in: dict):
+    async def register_customer(self, user_in: dict, background_tasks: BackgroundTasks):
         email = user_in['email'].lower()
         
         # 1. Logic: Check existence
@@ -49,6 +53,14 @@ class AuthService:
             await self.session.refresh(new_customer)
             
             logger.info(f"User registered successfully: {new_customer.id}")
+
+            background_tasks.add_task(
+                self.notification_service.notify,
+                   email=new_customer.email,
+                   channels=["email"],
+                   message=f"Welcome {new_customer.full_name}, your account was successfully created"
+                
+            )
 
             return {
                 "user": new_customer.id,

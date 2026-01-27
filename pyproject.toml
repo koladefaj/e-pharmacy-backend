@@ -36,6 +36,7 @@ dependencies = [
     "google-genai (>=1.57.0,<2.0.0)",
     "python-multipart (>=0.0.21,<0.0.22)",
     "stripe (>=14.2.0,<15.0.0)",
+    "sendgrid (>=6.12.5,<7.0.0)",
 ]
 
 [tool.poetry]

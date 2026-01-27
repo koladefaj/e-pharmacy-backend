@@ -23,9 +23,8 @@ class PaymentService:
     def __init__(self, *, stripe_api_key: str):
         stripe.api_key = stripe_api_key
 
-    # =====================================================
+
     # CREATE PAYMENT INTENT
-    # =====================================================
     async def create_payment_intent(
         self,
         *,
@@ -46,7 +45,7 @@ class PaymentService:
         if not await redis.get(f"checkout:{order.customer_id}"):
             raise ValueError("Checkout session expired")
 
-        # ♻️ Reuse existing intent
+        # Reuse existing intent
         if order.payment_intent_id:
             try:
                 intent = stripe.PaymentIntent.retrieve(order.payment_intent_id)
@@ -81,9 +80,8 @@ class PaymentService:
             "order_id": order.id,
         }
 
-    # =====================================================
+
     # STRIPE WEBHOOK ENTRYPOINT
-    # =====================================================
     async def handle_webhook(
         self,
         *,
@@ -94,7 +92,7 @@ class PaymentService:
         event_id = event["id"]
         event_key = f"stripe:event:{event_id}"
 
-        # 🔐 Idempotency
+        # Idempotency
         if await redis.get(event_key):
             return {"status": "duplicate"}
 
@@ -114,9 +112,8 @@ class PaymentService:
 
         return {"status": "ignored"}
 
-    # =====================================================
+    
     # PAYMENT SUCCEEDED
-    # =====================================================
     async def _handle_payment_succeeded(
         self,
         intent,
@@ -140,7 +137,7 @@ class PaymentService:
             if not order or order.status == OrderStatus.PAID:
                 return {"status": "already_processed"}
 
-            # 🔒 Deduct inventory
+            # Deduct inventory
             crud_product = CRUDProduct(db)
 
             for item in order.items:
@@ -163,9 +160,8 @@ class PaymentService:
 
         return {"status": "ok"}
 
-    # =====================================================
+
     # PAYMENT FAILED
-    # =====================================================
     async def _handle_payment_failed(
         self,
         intent,
@@ -185,9 +181,8 @@ class PaymentService:
 
         return {"status": "payment_failed"}
 
-    # =====================================================
+
     # REFUND SUCCEEDED → RESTORE INVENTORY
-    # =====================================================
     async def _handle_refund_succeeded(
         self,
         charge,
@@ -207,7 +202,7 @@ class PaymentService:
             if not order or order.status == OrderStatus.REFUNDED:
                 return {"status": "already_refunded"}
 
-            # 🔄 Restore inventory
+            # Restore inventory
             crud_product = CRUDProduct(db)
 
             for item in order.items:
@@ -223,9 +218,8 @@ class PaymentService:
 
         return {"status": "inventory_restored"}
 
-    # =====================================================
+
     # MANUAL REFUND (ADMIN)
-    # =====================================================
     async def refund_order(
         self,
         *,
@@ -250,9 +244,8 @@ class PaymentService:
             "status": refund.status,
         }
 
-    # =====================================================
+
     # CANCEL ORDER (PRE-PAYMENT)
-    # =====================================================
     async def cancel_order(
         self,
         *,

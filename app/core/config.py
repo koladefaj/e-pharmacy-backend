@@ -38,6 +38,9 @@ class Settings(BaseSettings):
 
     storage: str
 
+    sendgrid_api_key: str
+    email_from: str
+
 
 
 

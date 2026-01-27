@@ -1,13 +1,15 @@
 import stripe
+from redis import Redis
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.sessions import get_async_session, AsyncSessionLocal
-from app.core.deps import get_redis
+from app.core.deps import get_redis, get_current_customer
+from app.models.user import User
 from app.models.order import Order
 from app.services.payment_service import PaymentService
 
@@ -16,14 +18,14 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 
 payment_service = PaymentService(stripe_api_key=settings.stripe_secret_key)
 
-# --------------------------------------------------
+
 # CREATE PAYMENT INTENT
-# --------------------------------------------------
 @router.post("/order/{order_id}")
 async def create_payment_intent(
     order_id: UUID,
-    db=Depends(get_async_session),
-    redis=Depends(get_redis),
+    db: AsyncSession = Depends(get_async_session),
+    redis: Redis = Depends(get_redis),
+    current_user: User = Depends(get_current_customer)
 ):
     try:
         return await payment_service.create_payment_intent(
@@ -35,13 +37,11 @@ async def create_payment_intent(
         raise HTTPException(400, str(e))
 
 
-# --------------------------------------------------
 # STRIPE WEBHOOK
-# --------------------------------------------------
 @router.post("/webhooks/stripe")
 async def stripe_webhook(
     request: Request,
-    redis=Depends(get_redis),
+    redis: Redis = Depends(get_redis),
 ):
     payload = await request.body()
     sig = request.headers.get("stripe-signature")
@@ -62,14 +62,12 @@ async def stripe_webhook(
     )
 
 
-# --------------------------------------------------
 # REFUND ORDER
-# --------------------------------------------------
 @router.post("/refund/{order_id}")
 async def refund_order(
     order_id: UUID,
     amount: Decimal | None = None,
-    db=Depends(get_async_session),
+    db: AsyncSession = Depends(get_async_session),
 ):
     order = await db.get(Order, order_id)
 
@@ -86,13 +84,13 @@ async def refund_order(
         raise HTTPException(400, str(e))
 
 
-# --------------------------------------------------
+
 # CANCEL ORDER (PRE-PAYMENT)
-# --------------------------------------------------
 @router.post("/cancel/{order_id}")
 async def cancel_order(
     order_id: UUID,
-    db=Depends(get_async_session),
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_customer)
 ):
     order = await db.get(Order, order_id)
 

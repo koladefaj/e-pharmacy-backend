@@ -32,7 +32,11 @@ class Order(Base):
     )
 
     status: Mapped[OrderStatus] = mapped_column(
-        Enum(OrderStatus, name="order_status_enum"),
+        Enum(
+            OrderStatus, 
+             name="order_status_enum", 
+             values_callable=lambda enum: [e.value for e in enum]
+        ),
         nullable=False,
     )
 

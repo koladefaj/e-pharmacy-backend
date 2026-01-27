@@ -1,8 +1,8 @@
-"""initial database schemas
+"""initial db schemas
 
-Revision ID: 6d4d313a2a09
+Revision ID: c01378bb3f07
 Revises: 
-Create Date: 2026-01-26 01:28:53.105275
+Create Date: 2026-01-26 14:45:09.124139
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '6d4d313a2a09'
+revision: str = 'c01378bb3f07'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,7 +25,7 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('slug', sa.String(length=255), nullable=False),
-    sa.Column('category', sa.Enum('SUPPLEMENT', 'OTC', 'MEDICAL_DEVICE', 'PRESCRIPTION', name='categoryenum'), nullable=False),
+    sa.Column('category', sa.Enum('supplement', 'otc', 'medical_device', 'prescription', name='categoryenum'), nullable=False),
     sa.Column('active_ingredients', sa.Text(), nullable=True),
     sa.Column('prescription_required', sa.Boolean(), nullable=False),
     sa.Column('age_restriction', sa.Integer(), nullable=True),
@@ -44,7 +44,7 @@ def upgrade() -> None:
     sa.Column('address', sa.String(length=255), nullable=False),
     sa.Column('date_of_birth', sa.Date(), nullable=False),
     sa.Column('hashed_password', sa.String(length=255), nullable=False),
-    sa.Column('role', sa.Enum('ADMIN', 'CUSTOMER', 'PHARMACIST', name='user_roles'), nullable=False),
+    sa.Column('role', sa.Enum('admin', 'customer', 'pharmacist', name='user_roles'), nullable=False),
     sa.Column('license_number', sa.String(length=100), nullable=True),
     sa.Column('license_verified', sa.Boolean(), nullable=False),
     sa.Column('hired_at', sa.DateTime(timezone=True), nullable=True),
@@ -84,7 +84,7 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('customer_id', sa.UUID(), nullable=False),
     sa.Column('total_amount', sa.Numeric(precision=10, scale=2), nullable=False),
-    sa.Column('status', sa.Enum('CREATED', 'CHECKOUT_STARTED', 'AWAITING_PRESCRIPTION', 'PRESCRIPTION_REJECTED', 'READY_FOR_PAYMENT', 'PAID', 'CANCELLED', 'FULFILLED', name='order_status_enum'), nullable=False),
+    sa.Column('status', sa.Enum('created', 'checkout_started', 'awaiting_prescription', 'prescription_rejected', 'ready_for_payment', 'paid', 'refunded', 'refund_pending', 'cancelled', 'fulfilled', name='order_status_enum'), nullable=False),
     sa.Column('requires_prescription', sa.Boolean(), nullable=False),
     sa.Column('rejection_reason', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -113,7 +113,7 @@ def upgrade() -> None:
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('file_path', sa.String(), nullable=False),
     sa.Column('filename', sa.String(), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'APPROVED', 'REJECTED', name='prescriptionstatus'), nullable=False),
+    sa.Column('status', sa.Enum('pending', 'approved', 'rejected', name='prescriptionstatus'), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('reviewed_by', sa.UUID(), nullable=True),
     sa.Column('reviewed_at', sa.DateTime(timezone=True), nullable=True),

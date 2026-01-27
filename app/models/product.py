@@ -30,7 +30,7 @@ class Product(Base):
     )
 
     category: Mapped[CategoryEnum] = mapped_column(
-        Enum(CategoryEnum),
+        Enum(CategoryEnum, values_callable=lambda enum: [e.value for e in enum]),
         nullable=False,
         index=True,
         

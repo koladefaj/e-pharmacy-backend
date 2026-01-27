@@ -44,7 +44,7 @@ class Prescription(Base):
     )
 
     status: Mapped[PrescriptionStatus] = mapped_column(
-        Enum(PrescriptionStatus),
+        Enum(PrescriptionStatus, values_callable=lambda enum: [e.value for e in enum]),
         default=PrescriptionStatus.PENDING,
         nullable=False,
     )
