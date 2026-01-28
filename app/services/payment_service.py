@@ -3,11 +3,18 @@ import logging
 from uuid import UUID
 from decimal import Decimal
 from datetime import datetime
+from fastapi import BackgroundTasks
+from app.models.order_item import OrderItem
+from datetime import timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from app.models.user import User
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.cart_service import CartService
+from app.services.notification.notification_service import NotificationService
+from app.services.invoice_service import InvoiceService
+from app.core.exceptions import InsufficientStockError
 
 from app.models.order import Order
 from app.db.enums import OrderStatus
@@ -20,19 +27,19 @@ STRIPE_EVENT_TTL = 60 * 60 * 24
 
 
 class PaymentService:
-    def __init__(self, *, stripe_api_key: str):
-        stripe.api_key = stripe_api_key
 
+    def __init__(self, db: AsyncSession, notification_service: NotificationService):
+        self.db = db
+        self.notification_service = notification_service
 
     # CREATE PAYMENT INTENT
     async def create_payment_intent(
         self,
         *,
         order_id: UUID,
-        db: AsyncSession,
         redis,
     ) -> dict:
-        order = await db.scalar(
+        order = await self.db.scalar(
             select(Order).where(Order.id == order_id)
         )
 
@@ -73,7 +80,7 @@ class PaymentService:
         )
 
         order.payment_intent_id = intent.id
-        await db.commit()
+        await self.db.commit()
 
         return {
             "client_secret": intent.client_secret,
@@ -88,9 +95,12 @@ class PaymentService:
         event: dict,
         redis,
         db_factory,
+        background_tasks: BackgroundTasks
     ) -> dict:
         event_id = event["id"]
         event_key = f"stripe:event:{event_id}"
+
+        
 
         # Idempotency
         if await redis.get(event_key):
@@ -98,17 +108,24 @@ class PaymentService:
 
         await redis.set(event_key, "1", ex=STRIPE_EVENT_TTL)
 
-        event_type = event["type"]
-        data = event["data"]["object"]
+        event_type = event.get("type")
+
+        if not event_type:
+            return {"status": "invalid_event"}
+
+        data = event.get("data", {}).get("object")
+        if not data:
+            return {"status": "invalid_payload"}
+
 
         if event_type == "payment_intent.succeeded":
-            return await self._handle_payment_succeeded(data, redis, db_factory)
+            return await self._handle_payment_succeeded(data, redis, db_factory, background_tasks)
 
         if event_type == "payment_intent.payment_failed":
             return await self._handle_payment_failed(data, db_factory)
 
         if event_type in ("charge.refunded", "charge.refund.updated"):
-            return await self._handle_refund_succeeded(data, db_factory)
+            return await self._handle_refund_succeeded(data, db_factory, background_tasks)
 
         return {"status": "ignored"}
 
@@ -119,7 +136,9 @@ class PaymentService:
         intent,
         redis,
         db_factory,
+        background_tasks: BackgroundTasks
     ) -> dict:
+        
         order_id_str = intent.metadata.get("order_id")
         if not order_id_str:
             logger.warning("Stripe event missing order_id")
@@ -130,33 +149,67 @@ class PaymentService:
         async with db_factory() as db:
             order = await db.scalar(
                 select(Order)
-                .options(selectinload(Order.items))
+                .options(selectinload(Order.items)
+                .selectinload(OrderItem.product))
                 .where(Order.id == order_id)
+                .with_for_update() # Locks the order row during processing
             )
 
             if not order or order.status == OrderStatus.PAID:
                 return {"status": "already_processed"}
 
             # Deduct inventory
-            crud_product = CRUDProduct(db)
+            try:
+                crud_product = CRUDProduct(db)
 
-            for item in order.items:
-                await crud_product.deduct_stock_fefo(
-                    product_id=item.product_id,
-                    quantity=item.quantity,
+                for item in order.items:
+                    await crud_product.deduct_stock_fefo(
+                        product_id=item.product_id,
+                        quantity=item.quantity,
+                    )
+
+
+                order.status = OrderStatus.PAID
+                order.paid_at = datetime.now(timezone.utc)
+
+                await db.commit()
+                logger.info("Inventory deducted for order %s", order.id)
+
+
+                # Clear cart
+                cart_service = CartService(db)
+            
+                await redis.delete(f"checkout:{order.customer_id}")
+                await cart_service.clear_all(redis, order.customer_id)
+
+                # handle notification
+                user = await db.get(User, order.customer_id)
+
+                invoice_bytes = await InvoiceService.generate_pdf_bytes(order)
+
+
+                background_tasks.add_task(
+                    self.notification_service.notify,
+                    email=user.email,
+                    phone=None,
+                    message=f"Thank you for your purchase! Order #{order.id} is being processed.",
+                    channels=["email"],
+                    attachment=invoice_bytes.getvalue(), # Send as actual file
+                    filename=f"Invoice_{order.id}.pdf"
+                    
                 )
 
+                logger.info("Payment succeeded for order %s", order.id)
 
-            order.status = OrderStatus.PAID
-            order.paid_at = datetime.utcnow()
-            await db.commit()
+            except InsufficientStockError:
+                logger.error(f"Stock ran out before payment webhook for Order {order.id}")
+                return {"status": "out_of_stock_failure"}
 
+            except Exception:
+                await db.rollback()
+                logger.exception("Payment webhook failed")
+                return {"status": "error_handled"}
 
-            # Checkout session can be removed here
-            cart_service = CartService(db)
-            
-            await redis.delete(f"checkout:{order.customer_id}")
-            await cart_service.clear_all(redis, order.customer_id)
 
         return {"status": "ok"}
 
@@ -187,6 +240,7 @@ class PaymentService:
         self,
         charge,
         db_factory,
+        background_tasks: BackgroundTasks
     ) -> dict:
         payment_intent_id = charge.get("payment_intent")
         if not payment_intent_id:
@@ -215,6 +269,19 @@ class PaymentService:
             order.refunded_at = datetime.utcnow()
             await db.commit()
 
+            user = await db.get(User, order.customer_id)
+
+
+            background_tasks.add_task(
+                self.notification_service.notify,
+                email=user.email,
+                phone=None,
+                channels=["email"],
+                message=f"Payment Refunded for order: #{order.id}"
+                
+            )
+
+        logger.info("Refund processed for order %s", order.id)
 
         return {"status": "inventory_restored"}
 
@@ -225,7 +292,6 @@ class PaymentService:
         *,
         order: Order,
         amount: Decimal | None,
-        db: AsyncSession,
     ) -> dict:
         if order.status != OrderStatus.PAID:
             raise ValueError("Order is not refundable")
@@ -237,7 +303,7 @@ class PaymentService:
         )
 
         order.status = OrderStatus.REFUND_PENDING
-        await db.commit()
+        await self.db.commit()
 
         return {
             "refund_id": refund.id,
@@ -250,7 +316,6 @@ class PaymentService:
         self,
         *,
         order: Order,
-        db: AsyncSession,
     ) -> None:
         if order.status == OrderStatus.PAID:
             raise ValueError("Paid orders must be refunded")
@@ -265,6 +330,6 @@ class PaymentService:
                 pass
 
         order.status = OrderStatus.CANCELLED
-        await db.commit()
+        await self.db.commit()
 
     

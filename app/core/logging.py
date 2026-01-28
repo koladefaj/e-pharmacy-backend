@@ -1,50 +1,45 @@
 import logging
 import sys
+import json
 from contextvars import ContextVar
 
-# --- CONTEXTUAL TRACING ---
 request_id_var = ContextVar("request_id", default="system")
 
 class RequestIdFilter(logging.Filter):
-    """
-    A filter that injects the current 'request_id' into every LogRecord.
-    This makes 'request_id' available to the Formatter.
-    """
     def filter(self, record):
-        # If no request_id is set 
-        # it defaults to "system" instead of "n/a" for better clarity.
         record.request_id = request_id_var.get()
         return True
 
+class JSONFormatter(logging.Formatter):
+    """Custom formatter to ensure valid JSON and proper escaping."""
+    def format(self, record):
+        log_record = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "logger": record.name,
+            "file": f"{record.module}.py:{record.lineno}",
+            "message": record.getMessage(),
+            "request_id": getattr(record, "request_id", "system"),
+        }
+        # Include stack traces if an error occurred
+        if record.exc_info:
+            log_record["exception"] = self.formatException(record.exc_info)
+            
+        return json.dumps(log_record)
+
 def setup_logging():
-    """
-    Initializes the global logging system with a JSON formatter.
-
-    """
-    # Choose where logs go 
     handler = logging.StreamHandler(sys.stdout)
-    
-    # Attach our custom filter
     handler.addFilter(RequestIdFilter())
-    
-    # Define the Structured JSON Format
+    handler.setFormatter(JSONFormatter())
 
-    formatter = logging.Formatter(
-        '{"timestamp": "%(asctime)s", "level": "%(levelname)s", '
-        '"logger": "%(name)s", "file": "%(module)s.py:%(lineno)d", '
-        '"message": "%(message)s", "request_id": "%(request_id)s"}'
-    )
-    handler.setFormatter(formatter)
-
-    # Configure the Root Logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
     
-    # Clean up duplicate handlers 
     if root_logger.hasHandlers():
         root_logger.handlers.clear()
         
     root_logger.addHandler(handler)
-
-    # Silence noisy third-party libraries
+    
+    # Keep Uvicorn's critical info but hide the spammy health checks
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.error").setLevel(logging.INFO)

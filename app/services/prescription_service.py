@@ -1,19 +1,25 @@
+import logging
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import BackgroundTasks
 from app.models.order import Order
+from app.models.user import User
 from app.core.deps import get_storage
 from sqlalchemy import select
 from app.services.validation_service import validate_file_content
 from app.models.prescription import Prescription
 from app.db.enums import PrescriptionStatus, OrderStatus
+from app.services.notification.notification_service import NotificationService
 
+logger = logging.getLogger(__name__)
 
 class PrescriptionService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, notification_service: NotificationService):
         self.storage = get_storage()
         self.session = session
+        self.notification_service = notification_service
 
     async def upload_prescription(
         self,
@@ -106,6 +112,7 @@ class PrescriptionService:
         *,
         prescription_id: UUID,
         pharmacist_id: UUID,
+        background_tasks: BackgroundTasks
     ) -> Prescription:
         prescription = await self.session.get(Prescription, prescription_id)
 
@@ -131,6 +138,20 @@ class PrescriptionService:
         await self.session.commit()
         await self.session.refresh(prescription)
 
+        user = await self.session.get(User, order.customer_id)
+
+        background_tasks.add_task(
+            self.notification_service.notify,
+            email=user.email,
+            phone=None,
+            channels=["email"],
+            message=f"Your Prescription for order: #{order.id} has been approved"
+                
+        )
+
+    
+        logger.info(f"Prescription {prescription_id} {prescription.status.value} by Pharmacist {pharmacist_id}")
+
         return prescription
 
 
@@ -140,6 +161,7 @@ class PrescriptionService:
         prescription_id: UUID,
         pharmacist_id: UUID,
         reason: str,
+        background_tasks: BackgroundTasks
     ) -> Prescription:
         prescription = await self.session.get(Prescription, prescription_id)
 
@@ -164,6 +186,18 @@ class PrescriptionService:
         await self.session.commit()
         await self.session.refresh(prescription)
 
+        user = await self.session.get(User, order.customer_id)
+
+        background_tasks.add_task(
+            self.notification_service.notify,
+            email=user.email,
+            phone=None,
+            channels=["email"],
+            message=f"Your Prescription for order: #{order.id} was rejected reason: {prescription.rejection_reason}"
+                
+        )
+
+        logger.info(f"Prescription {prescription_id} {prescription.status.value} by Pharmacist {pharmacist_id}")
         return prescription
 
 

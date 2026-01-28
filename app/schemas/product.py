@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from decimal import Decimal
 from datetime import datetime, timezone
+from app.db.enums import CategoryEnum
 from typing import List
 from uuid import UUID
 
@@ -19,9 +20,11 @@ class BatchBase(BaseModel):
     @classmethod
     def must_be_in_future(cls, v: datetime) -> datetime:
         now = datetime.now(timezone.utc)
-        if v <= now:
+        # Ensure v has a timezone for comparison
+        target = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+        if target <= now:
             raise ValueError("Expiry date must be in the future")
-        return v
+        return target
 
 
 class BatchCreate(BatchBase):
@@ -53,7 +56,7 @@ class BatchRead(BatchBase):
 
 class ProductBase(BaseModel):
     name: str = Field(..., example="Amoxicillin 500mg")
-    category: str = Field(..., example="otc")
+    category: CategoryEnum
     active_ingredients: str | None = None
     prescription_required: bool = False
     age_restriction: int | None = None

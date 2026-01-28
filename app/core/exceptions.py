@@ -19,3 +19,10 @@ class NotAuthorized(Exception):
     Expected Result: 403 Forbidden
     """
     pass
+
+class InsufficientStockError(Exception):
+    """
+    Raised when an Inventory stock is insuffient
+    
+    """
+    pass

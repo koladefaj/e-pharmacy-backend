@@ -11,6 +11,7 @@ from typing import Type, TypeVar
 
 from app.core.roles import UserRole
 from app.storage.base import StorageInterface
+from app.services.notification.notification_service import NotificationService
 from app.storage.r2_storage import R2Storage
 from app.core.config import settings
 from app.db.sessions import get_async_session
@@ -32,7 +33,7 @@ T = TypeVar("T")
 # Create ONE Redis client (connection pool)
 redis_client = Redis.from_url(
     settings.redis_url,
-    decode_responses=True,  # important: returns str instead of bytes
+    decode_responses=True,  # returns str instead of bytes
 )
 
 async def get_current_user(
@@ -74,7 +75,7 @@ async def get_current_user(
             detail="Token is invalid or has expired"
     )
 
-    # --- DATABASE VERIFICATION ---
+    # DATABASE VERIFICATION
     
     # Convert the string user_id into a proper UUID object.
     # SQLAlchemy's Uui
@@ -104,7 +105,7 @@ async def get_current_user(
     return user
 
 
-# --- ROLE BASED ACCESS CONTROL (SUB DEPENDENCIES OF GET CURRENT USER) ---
+# ROLE BASED ACCESS CONTROL (SUB DEPENDENCIES OF GET CURRENT USER)
 
 def get_current_customer(current_user: User = Depends(get_current_user)) -> User:
     """Require Customer role"""
@@ -170,10 +171,21 @@ def get_storage() -> StorageInterface:
         return _r2_storage
     return False
 
+def get_notification_service() -> NotificationService:
+    return NotificationService()
+
 def get_service(service_cls: Type[T]):
-    def _get(db: AsyncSession = Depends(get_async_session),) -> T:
-        return service_cls(db)
-    return  _get
+    def _get(
+        db: AsyncSession = Depends(get_async_session),
+        notification_service: NotificationService = Depends(get_notification_service),
+    ) -> T:
+        try:
+            return service_cls(db, notification_service)
+        except TypeError:
+            return service_cls(db)
+
+    return _get
+
 
 
 

@@ -16,9 +16,8 @@ class CartCRUD:
     def _key(self, user_id: UUID) -> str:
         return f"cart:{user_id}"
 
-    # -----------------------
+    
     # REDIS OPERATIONS
-    # -----------------------
     async def get_redis_items(self, redis: Redis, user_id: UUID) -> List[Dict]:
         data = await redis.get(self._key(user_id))
         if not data:
@@ -42,9 +41,8 @@ class CartCRUD:
     async def delete_redis_cart(self, redis: Redis, user_id: UUID):
         await redis.delete(self._key(user_id))
 
-    # -----------------------
+    
     # DATABASE OPERATIONS
-    # -----------------------
     async def get_db_items(
         self,
         user_id: UUID,

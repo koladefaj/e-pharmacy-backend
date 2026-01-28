@@ -19,9 +19,8 @@ router = APIRouter(
     tags=["Customers"],
 )
 
-# -------------------------------
+
 # ADD ITEM TO CART
-# -------------------------------
 @router.post("/add", status_code=status.HTTP_200_OK)
 async def add_to_cart(
     item_in: CartItemCreate,
@@ -40,7 +39,7 @@ async def add_to_cart(
         quantity=item_in.quantity,
     )
 
-    # 🔑 Background DB sync (SAFE)
+    # Background DB sync (SAFE)
     background_tasks.add_task(
         service.sync_to_db,
         user_id=current_user.id,
@@ -50,9 +49,8 @@ async def add_to_cart(
     return {"message": "Cart updated", "cart": cart}
 
 
-# -------------------------------
+
 # VIEW CART
-# -------------------------------
 @router.get("/cart", status_code=status.HTTP_200_OK)
 async def view_cart(
     current_user: User = Depends(get_current_customer),
@@ -65,9 +63,8 @@ async def view_cart(
     return await service.get_cart(redis, current_user.id)
 
 
-# -------------------------------
+
 # UPDATE CART ITEM
-# -------------------------------
 @router.patch("/cart/update", status_code=status.HTTP_200_OK)
 async def update_cart_item(
     item_in: CartItemCreate,
@@ -87,7 +84,7 @@ async def update_cart_item(
         quantity=item_in.quantity,
     )
 
-    # 🔑 Background DB sync (SAFE)
+    # Background DB sync (SAFE)
     background_tasks.add_task(
         service.sync_to_db,
         user_id=current_user.id,
@@ -100,9 +97,8 @@ async def update_cart_item(
     }
 
 
-# -------------------------------
+
 # REMOVE SINGLE ITEM
-# -------------------------------
 @router.delete(
     "/cart/remove/{product_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -133,9 +129,8 @@ async def remove_cart_item(
     return None
 
 
-# -------------------------------
+
 # CLEAR CART
-# -------------------------------
 @router.delete("/cart/clear", status_code=status.HTTP_200_OK)
 async def clear_cart(
     background_tasks: BackgroundTasks,

@@ -1,27 +1,26 @@
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+from app.db.enums import PrescriptionStatus
 
 
-# -------------------------
-# BASE RESPONSE
-# -------------------------
+# Base Respoonse
+class PrescriptionBaseResponse(BaseModel):
 
-
-class PrescriptionStatusResponse(BaseModel):
     id: UUID
     order_id: UUID
-    status: str
+    status: PrescriptionStatus
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PrescriptionStatusResponse(PrescriptionBaseResponse):
     reviewed_at: datetime | None = None
     rejection_reason: str | None = None
 
-    class Config:
-        from_attributes = True
 
-
-# -------------------------
 # APPROVE
-# -------------------------
 class PrescriptionApproveRequest(BaseModel):
     """
     Request body for approving a prescription.
@@ -29,9 +28,8 @@ class PrescriptionApproveRequest(BaseModel):
     prescription_id: UUID = Field(..., description="ID of the prescription to approve")
 
 
-# -------------------------
+
 # REJECT
-# -------------------------
 class PrescriptionRejectRequest(BaseModel):
     """
     Request body for rejecting a prescription.

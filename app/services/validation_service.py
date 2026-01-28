@@ -5,12 +5,10 @@ import magic
 # Initialize logger for security events
 logger = logging.getLogger(__name__)
 
-# --- 1. CONFIGURATION ---
+# CONFIGURATION
 # Allowed MIME types mapped to valid extensions
 ALLOWED_MIME_TYPES = {
     "application/pdf": [".pdf"],
-    "application/msword": [".doc"],
-    "application/zip": [".docx", ".zip"],
     "image/jpeg": [".jpg", ".jpeg"],
     "image/png": [".png"],
 }
@@ -26,7 +24,7 @@ async def validate_file_content(file: UploadFile):
     3. Extension consistency check
     """
 
-    # --- STAGE 1: SIZE VALIDATION ---
+    # SIZE VALIDATION
     file_size = 0
     if hasattr(file, "size") and file.size:
         file_size = file.size
@@ -40,25 +38,42 @@ async def validate_file_content(file: UploadFile):
         logger.warning(f"Security: Blocked oversized file ({file_size} bytes)")
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File exceeds 10MB limit."
+            detail="File too large."
         )
 
-    # --- STAGE 2: CONTENT VALIDATION (Magic Bytes) ---
-    header = await file.read(2048)  # first 2KB is enough
-    file_mime_type = magic.from_buffer(header, mime=True)
-    await file.seek(0)  # reset for next service
+    # CONTENT VALIDATION
+
+    try:
+        header = await file.read(2048)  # first 2KB is enough
+        file_mime_type = magic.from_buffer(header, mime=True)
+        await file.seek(0)  # reset for next service
+
+    except Exception as e:
+        logger.error(f"Magic bytes read error: {e}")
+        raise HTTPException(status_code=400, detail="Could not read file headers.")
+    
 
     if file_mime_type not in ALLOWED_MIME_TYPES:
-        logger.error(f"Security: Rejected unsupported MIME type: {file_mime_type}")
+        
+        logger.warning(
+            "File validation failed",
+            extra={
+                "mime_type": file_mime_type,
+                "filename": file.filename,
+                "reason": "unsupported_mime",
+                "client_ip": getattr(file, "client", "unknown") 
+            }
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type: {file_mime_type}"
+            detail=f"Unsupported file type"
         )
 
-    # --- STAGE 3: EXTENSION CONSISTENCY ---
+    # EXTENSION CONSISTENCY
     file_ext = "." + file.filename.split(".")[-1].lower() if file.filename else ""
     if file_ext not in ALLOWED_MIME_TYPES[file_mime_type]:
-        logger.error(f"Security: Extension mismatch: {file_ext} vs {file_mime_type}")
+        logger.error(f"Extension mismatch: {file_ext} vs {file_mime_type}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File extension does not match the actual file content."

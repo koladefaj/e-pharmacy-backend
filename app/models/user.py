@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime, date
-from typing import Optional
 
 from sqlalchemy import (
     String,
@@ -24,6 +23,7 @@ class User(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+        server_default=text("gen_random_uuid()") #DB-side generation
     )
 
     full_name: Mapped[str] = mapped_column(
@@ -40,7 +40,7 @@ class User(Base):
 
     phone_number: Mapped[str] = mapped_column(
         String(20),
-        nullable=False
+        nullable=False,
     )
 
     address: Mapped[str] = mapped_column(
@@ -53,7 +53,7 @@ class User(Base):
     )
 
     hashed_password: Mapped[str] = mapped_column(
-        String(255),
+        String(512),
         nullable=False
     )
 
@@ -61,21 +61,24 @@ class User(Base):
         Enum(UserRole, name="user_roles", values_callable=lambda enum: [e.value for e in enum]),
         nullable=False,
         default=UserRole.CUSTOMER,
+        index=True,
     )
 
     # Pharmacist-specific (employees, not owners)
-    license_number: Mapped[Optional[str]] = mapped_column(
+    license_number: Mapped[str | None] = mapped_column(
         String(100),
-        nullable=True
+        nullable=True,
+        index=True,
+        unique=True,
     )
 
     license_verified: Mapped[bool] = mapped_column(
         Boolean,
-        default=False,
+        default=True,
         nullable=False
     )
 
-    hired_at: Mapped[Optional[datetime]] = mapped_column(
+    hired_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True
     )
@@ -93,12 +96,20 @@ class User(Base):
         nullable=False
     )
 
+    # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False
     )
 
-    
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(), # Automatically updates on change
+        nullable=False
+    )
+
+    # Relationships
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order",back_populates="customer",cascade="all, delete-orphan",)

@@ -150,7 +150,7 @@ class CRUDProduct:
         Deduct stock using First-Expired-First-Out (FEFO) logic.
         Ensures we don't sell blocked or expired items.
         """
-        # 1. Fetch all available, non-blocked, unexpired batches sorted by expiry
+        # Fetch all available, non-blocked, unexpired batches sorted by expiry
         stmt = (
             select(InventoryBatch)
             .where(
@@ -252,10 +252,10 @@ class CRUDProduct:
         skip: int = 0, 
         limit: int = 20
     ):
-        # 1. Initialize stmt immediately so it's never "unbound"
+        # Initialize stmt immediately so it's never "unbound"
         stmt = select(Product).options(selectinload(Product.batches))
         
-        # 2. Apply filters
+        # Apply filters
         stmt = stmt.where(Product.is_active == True)
         
         if category:
@@ -264,10 +264,10 @@ class CRUDProduct:
         if search:
             stmt = stmt.where(Product.name.ilike(f"%{search}%"))
             
-        # 3. Apply pagination and ordering
+        # Apply pagination and ordering
         stmt = stmt.offset(skip).limit(limit).order_by(Product.name.asc())
         
-        # 4. Execute
+        # Execute
         result = await self.session.execute(stmt)
         return result.scalars().all()
     

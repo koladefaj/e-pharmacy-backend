@@ -1,10 +1,15 @@
 import uuid
 import os
 import logging
+import app.core.stripe
 
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from app.db.sessions import get_async_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from redis.asyncio import Redis
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -14,7 +19,6 @@ from app.core.config import settings
 from app.core.logging import setup_logging, request_id_var
 from app.core.limiter import limiter
 from app.core.deps import get_redis
-from fastapi import Request
 from fastapi.responses import JSONResponse
 from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
 
@@ -83,11 +87,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8000",
         "http://localhost:3000",
-        "https://your-frontend.up.railway.app",
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -96,8 +99,8 @@ app.add_middleware(
 async def security_and_tracing_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
-
     token = request_id_var.set(request_id)
+
     try:
         response = await call_next(request)
 
@@ -105,26 +108,46 @@ async def security_and_tracing_middleware(request: Request, call_next):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
 
+
         if settings.environment == "production":
             response.headers["Strict-Transport-Security"] = (
                 "max-age=63072000; includeSubDomains"
             )
 
         return response
+
+    except Exception as e:
+        # Ensure we still reset the context var even if the app crashes
+        logger.error(f"Middleware caught crash: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+    
     finally:
         request_id_var.reset(token)
 
 
 # HEALTH CHECKS
-@app.get("/health", status_code=200)
-def health_check(request: Request):
-    return {
-        "status": "online",
-        "request_id": request.state.request_id,
-        "environment": settings.environment,
-    }
+@app.get("/health")
+async def health_check(
+    db: AsyncSession = Depends(get_async_session)
+):
+    health_status = {"status": "healthy", "dependencies": {}}
+    
+    # 1. Check PostgreSQL
+    try:
+        await db.execute(text("SELECT 1"))
+        health_status["dependencies"]["database"] = "ok"
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["dependencies"]["database"] = str(e)
 
-@app.get("/redis-health")
-async def redis_health(redis=Depends(get_redis)):
-    await redis.set("health", "ok", ex=5)
-    return {"redis": await redis.get("health")}
+    # 2. Check Redis
+    try:
+        redis_client = Redis.from_url(settings.redis_url)
+        await redis_client.ping()
+        health_status["dependencies"]["redis"] = "ok"
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["dependencies"]["redis"] = str(e)
+
+    return health_status
+

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Integer, Numeric, DateTime, ForeignKey, Boolean, func
+from sqlalchemy import String, Integer, Numeric, DateTime, ForeignKey, Boolean, func, CheckConstraint, text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from decimal import Decimal
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -11,13 +11,15 @@ class InventoryBatch(Base):
     id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True), 
         primary_key=True, 
-        default=uuid.uuid4
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()")
     )
 
     product_id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True), 
         ForeignKey("products.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
+        index=True
     )
     
     # Stock Tracking
@@ -35,6 +37,7 @@ class InventoryBatch(Base):
 
     current_quantity: Mapped[int] = mapped_column(
         Integer, 
+        CheckConstraint('current_quantity >= 0'), # Prevent overselling
         nullable=False
     )
     
@@ -53,7 +56,8 @@ class InventoryBatch(Base):
 
     is_blocked: Mapped[bool] = mapped_column(
         Boolean, 
-        default=False
+        default=False,
+        nullable=False
     ) # Manual or automatic block
     
     created_at: Mapped[DateTime] = mapped_column(
@@ -61,5 +65,11 @@ class InventoryBatch(Base):
         server_default=func.now(),
     )
     
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('product_id', 'batch_number', name='uq_product_batch'),
+        CheckConstraint('current_quantity <= initial_quantity', name='check_stock_limit'),
+    )
+
     # Relationship back to the Product Master
     product = relationship("Product", back_populates="batches")

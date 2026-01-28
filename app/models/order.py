@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Numeric, ForeignKey, DateTime, String, Boolean, func, Enum
+from sqlalchemy import Numeric, ForeignKey, DateTime, String, Boolean, func, Enum, text
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from decimal import Decimal
 from datetime import datetime, timezone
@@ -17,11 +17,12 @@ class Order(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+        server_default=text("gen_random_uuid()")
     )
 
     customer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         index=True,
         nullable=False,
     )
@@ -38,6 +39,7 @@ class Order(Base):
              values_callable=lambda enum: [e.value for e in enum]
         ),
         nullable=False,
+        index=True
     )
 
     requires_prescription: Mapped[bool] = mapped_column(
@@ -58,10 +60,10 @@ class Order(Base):
     )
 
     
-    payment_intent_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    payment_intent_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
     
     paid_at: Mapped[datetime | None] = mapped_column(
-        DateTime, 
+        DateTime(timezone=True), 
         nullable=True
     )
 

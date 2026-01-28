@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 storage_uri = settings.redis_url if settings.environment != "testing" else "memory://"
 IS_TESTING = settings.environment == "testing"
 
-# --- RATE LIMITER CONFIGURATION ---
+# RATE LIMITER CONFIGURATION 
 # key_func=get_remote_address: Identifies users by their IP address.
 
 

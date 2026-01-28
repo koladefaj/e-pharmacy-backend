@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 from app.models.cart import CartItem
 from app.crud.cart import CartCRUD
 from app.models.inventory import InventoryBatch
@@ -19,10 +20,10 @@ class CartService:
         """
         Retrieve cart from Redis first, fallback to DB.
         """
-        # 1. Try Redis
+        # Try Redis
         items = await self.cart_crud.get_redis_items(redis, user_id)
 
-        # 2. If empty, try DB and repopulate Redis
+        # If empty, try DB and repopulate Redis
         if not items:
             db_items = await self.cart_crud.get_db_items(user_id)
             if db_items:
@@ -51,43 +52,49 @@ class CartService:
         DB sync must be handled by the router via BackgroundTasks.
         """
         if quantity <= 0:
-            raise HTTPException(status_code=400, detail="Quantity must be positive")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Quantity must be positive"
+            )
+        
+        # Get existing cart to see current quantity
+        cart = await self.get_cart(redis, user_id)
+        items = cart["items"]
 
-        # 1. Stock validation (FEFO + timezone-safe)
+        current_qty_in_cart = next(
+            (i["quantity"] for i in items if i["product_id"] == str(product_id)), 0
+        )
+        target_quantity = current_qty_in_cart + quantity
+
+        # Stock validation (FEFO + timezone-safe)
         batch = await self.session.scalar(
             select(InventoryBatch)
             .where(
                 InventoryBatch.product_id == product_id,
                 InventoryBatch.is_blocked.is_(False),
                 InventoryBatch.expiry_date > datetime.now(timezone.utc),
-                InventoryBatch.current_quantity >= quantity,
+                InventoryBatch.current_quantity >= target_quantity,
             )
             .order_by(InventoryBatch.expiry_date.asc())
         )
 
         if not batch:
             raise HTTPException(
-                status_code=400,
-                detail="Product is out of stock or expired",
+                status_code=status.HTTP_400_BAD_REQUEST0,
+                detail=f"Cannot add {quantity} more. Total exceeds available stock.",
             )
-
-        # 2. Update cart logic
-        cart = await self.get_cart(redis, user_id)
-        items = cart["items"]
-
+        
+        # Update items list
+        found = False
         for item in items:
             if item["product_id"] == str(product_id):
-                item["quantity"] += quantity
+                item["quantity"] = target_quantity
+                found = True
                 break
-        else:
-            items.append(
-                {
-                    "product_id": str(product_id),
-                    "quantity": quantity,
-                }
-            )
+        if not found:
+            items.append({"product_id": str(product_id), "quantity": quantity})
 
-        # 3. Save to Redis immediately
+        # Save to Redis immediately
         await self.cart_crud.set_redis_items(
             redis, user_id, items, self.CART_TTL
         )

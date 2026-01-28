@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker, create_asy
 # Initialize the logger for async database events
 logger = logging.getLogger(__name__)
 
-# --- DATABASE URL CONFIGURATION ---
+# DATABASE URL CONFIGURATION
 
 # Get the base DATABASE_URL (sync version: postgresql://)
 db_url = settings.database_url
@@ -23,7 +23,7 @@ else:
     async_db = db_url.replace('postgresql://', 'postgresql+asyncpg://')
 
 
-# --- ASYNC ENGINE CONFIG (FastAPI)
+# ASYNC ENGINE CONFIG (FastAPI)
 
 async_engine = create_async_engine(
     async_db,
@@ -40,7 +40,7 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit= False,
 )
 
-# --- SYNC ENGINE CONFIG (Celery / Scripts)
+# SYNC ENGINE CONFIG (Celery / Scripts)
 
 sync_engine = create_engine(
     db_url,
@@ -59,7 +59,7 @@ SessionLocal = sessionmaker(
     expire_on_commit=False
 )
 
-# --- FASTAPI DEPENDENCY
+# FASTAPI DEPENDENCY
 async def get_async_session() -> AsyncSession:
     """
     FastAPI Dependency that provides an asynchronous database session.
@@ -86,7 +86,7 @@ def get_sync_session() -> Session:
     logger.debug("Database: Creating new synchronous session for worker.")
     return SessionLocal()
 
-# --- CONTEXT MANAGER ---
+# CONTEXT MANAGER
 
 @contextmanager
 def sync_session_scope():

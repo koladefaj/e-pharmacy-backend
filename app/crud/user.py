@@ -44,10 +44,9 @@ class UserCRUD:
 
     async def verify_pharmacist(self, *, db_obj: User, obj_in: PharmacistApproveSchema):
         # This just updates the fields and saves
-        db_obj.license_verified = True  # Assuming you have this field
+        db_obj.license_verified = True 
         db_obj.is_active = True
-        # If PharmacistApproveSchema has license notes, update them here
-        # ...
+    
         await self.session.commit()
         await self.session.refresh(db_obj)
         return db_obj

@@ -2,6 +2,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.product import Product
 from uuid import UUID
+from starlette import status
 from fastapi import HTTPException
 from app.crud.product import CRUDProduct
 from app.schemas.product import ProductCreate
@@ -27,7 +28,7 @@ class AdminProductService:
     async def get_admin_catalog(self, skip: int = 0, limit: int = 20):
         """
         Fetches full product list including inactive items.
-        Returns a list of products (The service shouldn't wrap in {"products": ...})
+        Returns a list of products
         """
         return await self.product_crud.get_multi_product_admin(
             skip=skip, 
@@ -39,14 +40,26 @@ class AdminProductService:
         product = await self.session.get(Product, product_id)
         if not product:
             # This will be caught by your global handler in main.py
-            raise HTTPException(status_code=404, detail="Product not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
 
         product.is_active = not product.is_active
+
+        logger.info(
+            f"ADMIN ACTION: Product {product.id} ({product.name}) "
+            f"set to {'ACTIVE' if product.is_active else 'INACTIVE'}"
+        )
+
         await self.session.commit()
         await self.session.refresh(product)
         
-        status_text = "enabled" if product.is_active else "disabled"
-        return {"message": f"Product {product.name} is now {status_text}."}
+        return {
+            "id": product.id,
+            "is_active": product.is_active,
+            "message": f"Product status updated successfully."
+        }
     
     async def remove_inventory_batch(self, batch_number: str, admin_email: str):
         """Service logic to remove a batch and log the administrator responsible."""
@@ -54,8 +67,8 @@ class AdminProductService:
         
         if not success:
             raise HTTPException(
-                status_code=404, 
+                status_code=status.HTTP_404_NOT_FOUND, 
                 detail=f"Inventory batch '{batch_number}' not found."
             )
-        logger.info(f"Batch removed by {admin_email}")
-        return True
+        logger.warning(f"SECURITY: Admin {admin_email} permanently deleted batch {batch_number}")
+        return {"detail": f"Batch {batch_number} successfully removed."}

@@ -14,7 +14,7 @@ router = APIRouter( prefix="/me", tags=["User"],)
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
-@limiter.limit("30/minute")
+@limiter.limit("5/minute")
 async def update_password(
     request: Request,
     password_data: ChangePasswordRequest, 
@@ -29,4 +29,4 @@ async def update_password(
         old_password=password_data.old_password,
         new_password=password_data.new_password
     )
-    return "Password Changed"
+    return None

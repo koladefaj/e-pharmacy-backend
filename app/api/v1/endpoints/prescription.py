@@ -1,11 +1,10 @@
-from fastapi import APIRouter, UploadFile, File, Depends
+from fastapi import APIRouter, UploadFile, File, Depends, BackgroundTasks
 from uuid import UUID
 from typing import List
 
 
 from app.core.deps import get_current_user, get_current_pharmacist, get_service
 from app.schemas.prescription import (
-    PrescriptionApproveRequest,
     PrescriptionRejectRequest,
     PrescriptionStatusResponse,
     PendingPrescriptionResponse,
@@ -17,9 +16,8 @@ router = APIRouter(
     tags=["Prescriptions"],
 )
 
-# -------------------------------------------------
+
 # UPLOAD PRESCRIPTION (CUSTOMER)
-# -------------------------------------------------
 @router.post(
     "/upload",
     response_model=PrescriptionStatusResponse,
@@ -42,38 +40,40 @@ async def upload_prescription(
     return prescription
 
 
-# -------------------------------------------------
+
 # APPROVE PRESCRIPTION (PHARMACIST)
-# -------------------------------------------------
 @router.post(
     "/approve",
     response_model=PrescriptionStatusResponse,
 )
 async def approve_prescription(
-    body: PrescriptionApproveRequest,
+    prescription_id: UUID,
+    background_tasks: BackgroundTasks,
     service: PrescriptionService = Depends(get_service(PrescriptionService)),
     pharmacist=Depends(get_current_pharmacist),
 ):
     """
     Pharmacist approves a prescription.
     """
+    
     prescription = await service.approve(
-        prescription_id=body.prescription_id,
+        prescription_id=prescription_id,
         pharmacist_id=pharmacist.id,
+        background_tasks=background_tasks
     )
 
     return prescription
 
 
-# -------------------------------------------------
+
 # REJECT PRESCRIPTION (PHARMACIST)
-# -------------------------------------------------
 @router.post(
     "/reject",
     response_model=PrescriptionStatusResponse,
 )
 async def reject_prescription(
     body: PrescriptionRejectRequest,
+    background_tasks: BackgroundTasks,
     pharmacist=Depends(get_current_pharmacist),
     service: PrescriptionService = Depends(get_service(PrescriptionService)),
 ):
@@ -84,6 +84,7 @@ async def reject_prescription(
         prescription_id=body.prescription_id,
         pharmacist_id=pharmacist.id,
         reason=body.reason,
+        background_tasks=background_tasks
     )
 
     return prescription

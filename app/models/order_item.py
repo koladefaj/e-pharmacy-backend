@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Numeric
+from sqlalchemy import ForeignKey, Numeric, text, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -16,6 +16,7 @@ class OrderItem(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+        server_default=text("gen_random_uuid()")
     )
 
     # Relationships
@@ -28,19 +29,23 @@ class OrderItem(Base):
 
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("products.id"),
+        ForeignKey("products.id", ondelete="RESTRICT"),
         nullable=False,
+        index=True
     )
 
     # Inventory (linked later during fulfillment)
-    batch_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("inventory_batches.id"),
+        ForeignKey("inventory_batches.id", ondelete="SET NULL"),
         nullable=True,
     )
 
     # Purchase snapshot
-    quantity: Mapped[int] = mapped_column(nullable=False)
+    quantity: Mapped[int] = mapped_column(
+        CheckConstraint('quantity > 0'),
+        nullable=False
+    )
 
     price_at_purchase: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),

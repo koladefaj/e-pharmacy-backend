@@ -1,5 +1,5 @@
 import logging
-from fastapi import Depends, APIRouter, Request, status
+from fastapi import Depends, APIRouter, Request, status, BackgroundTasks
 from starlette import status
 from app.models.user import User
 from typing import List
@@ -26,7 +26,8 @@ router = APIRouter(prefix="/pharmacist", tags=["Admin"])
 async def create_pharmacist(
     request: Request,
     user_data: CreatePharmacistRequest,
-    service: AuthService = Depends(get_service(AuthService)),
+    backgroundtasks: BackgroundTasks,
+    service: AdminPharmacistService = Depends(get_service(AdminPharmacistService)),
     current_admin: User = Depends(get_current_admin)
 ):
     """
@@ -35,7 +36,7 @@ async def create_pharmacist(
     
     """
 
-    pharmacist = await service.register_pharmacist(user_data.dict())
+    pharmacist = await service.register_pharmacist(user_in=user_data.dict(), background_tasks=backgroundtasks)
 
     logger.info(
         f"ADMIN_ACTION: Pharmacist created | "

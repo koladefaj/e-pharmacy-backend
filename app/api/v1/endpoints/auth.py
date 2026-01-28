@@ -1,10 +1,10 @@
 import logging
-from fastapi import Depends, APIRouter, Request
+from fastapi import Depends, APIRouter, Request, BackgroundTasks
 from starlette import status
 from app.schemas.user import RegisterCustomerRequest, LoginRequest
 from app.services.auth_service import AuthService
 from app.schemas.user import RefreshTokenRequest
-from app.core.deps import get_service
+from app.core.deps import get_service, get_notification_service
 from app.core.limiter import limiter
 
 # Initialize logger for security and audit events
@@ -17,6 +17,7 @@ router = APIRouter( prefix="/auth", tags=["auth"],)
 async def signup(
     request: Request,
     user_data: RegisterCustomerRequest,
+    backgroundtasks: BackgroundTasks,
     service: AuthService = Depends(get_service(AuthService))
 ):
     """
@@ -25,7 +26,7 @@ async def signup(
     
     """
 
-    return await service.register_customer(user_data.dict())
+    return await service.register_customer(user_in=user_data.dict(), background_tasks=backgroundtasks)
 
 
 
