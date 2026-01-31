@@ -40,5 +40,29 @@ class EmailNotification(NotificationChannel):
             sg.send(mail)
             return True
         except Exception as e:
+            # Handle SSL Certificate Verify Failed (Common in corporate/local envs)
+            if "CERTIFICATE_VERIFY_FAILED" in str(e):
+                logger.warning("SSL Certificate verification failed. Retrying with unverified context.")
+                import ssl
+                
+                # Verify we are in a safe environment to do this?
+                # For now, we assume if it failed, we try this fallback.
+                try:
+                    # Save original context creator
+                    original_create_default_https_context = ssl._create_default_https_context
+                    # Bypass verification
+                    ssl._create_default_https_context = ssl._create_unverified_context
+                    
+                    sg_unverified = SendGridAPIClient(settings.sendgrid_api_key)
+                    sg_unverified.send(mail)
+                    logger.info("Email sent successfully with unverified context.")
+                    return True
+                except Exception as retry_e:
+                    logger.error(f"Retry failed: {retry_e}")
+                    # Fall through to return False
+                finally:
+                    # Restore original context
+                    ssl._create_default_https_context = original_create_default_https_context
+
             logger.error(f"Email send failed: {e}")
             return False

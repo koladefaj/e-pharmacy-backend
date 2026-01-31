@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
 
+
 class ProductService:
 
     def __init__(self, session: AsyncSession):
@@ -21,15 +22,13 @@ class ProductService:
         if not product:
             logger.warning(f"Batch creation failed: Product {product_id} not found.")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="Product not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
             )
 
         # Create the batch
         try:
             batch = await self.product_crud.create_new_batch(
-                product_id=product_id, 
-                obj_in=batch_in
+                product_id=product_id, obj_in=batch_in
             )
 
             logger.info(
@@ -42,14 +41,17 @@ class ProductService:
             logger.error(f"Failed to create batch for product {product_id}: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not register new inventory batch."
+                detail="Could not register new inventory batch.",
             )
-    
-    
-    async def get_catalog(self, category: str = None, search: str = None, skip: int = 0, limit: int = 20,):
+
+    async def get_catalog(
+        self,
+        category: str = None,
+        search: str = None,
+        skip: int = 0,
+        limit: int = 20,
+    ):
         """Fetch filtered storefront products."""
         return await self.product_crud.get_storefront(
             category=category, search=search, skip=skip, limit=limit
         )
-
-

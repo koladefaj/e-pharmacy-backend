@@ -25,9 +25,9 @@ class NotificationService:
                 await self.channels["email"].send(
                     email, 
                     message,
-                    attachment,
-                    filename
-        )
+                    attachment=attachment,
+                    filename=filename
+                )
 
             if channel == "whatsapp" and phone:
                 await self.channels["whatsapp"].send(phone, message)

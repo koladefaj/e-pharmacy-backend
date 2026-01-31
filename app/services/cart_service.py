@@ -53,10 +53,10 @@ class CartService:
         """
         if quantity <= 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail="Quantity must be positive"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Quantity must be positive",
             )
-        
+
         # Get existing cart to see current quantity
         cart = await self.get_cart(redis, user_id)
         items = cart["items"]
@@ -80,10 +80,10 @@ class CartService:
 
         if not batch:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST0,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot add {quantity} more. Total exceeds available stock.",
             )
-        
+
         # Update items list
         found = False
         for item in items:
@@ -95,9 +95,7 @@ class CartService:
             items.append({"product_id": str(product_id), "quantity": quantity})
 
         # Save to Redis immediately
-        await self.cart_crud.set_redis_items(
-            redis, user_id, items, self.CART_TTL
-        )
+        await self.cart_crud.set_redis_items(redis, user_id, items, self.CART_TTL)
 
         return {
             "items": items,
@@ -116,23 +114,32 @@ class CartService:
         If quantity == 0 → remove item.
         """
         cart = await self.get_cart(redis, user_id)
-        
-        if cart["total_items"] == 0:
-            return "Cart is Empty"
-        
-        items = cart["items"]
 
+        if cart["total_items"] == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Cart is empty"
+            )
+
+        items = cart["items"]
         updated_items = []
+        found = False  # <--- 1. Initialize a flag
 
         for item in items:
             if item["product_id"] == str(product_id):
+                found = True  # <--- 2. Mark as found
                 if quantity > 0:
                     updated_items.append(
                         {"product_id": str(product_id), "quantity": quantity}
                     )
-                # quantity == 0 → skip (remove)
+                # If quantity == 0, we simply don't append it (effectively removing it)
             else:
                 updated_items.append(item)
+
+        # <--- 3. Check if the item was actually in the cart
+        if not found:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Item not found in cart"
+            )
 
         await self.cart_crud.set_redis_items(
             redis, user_id, updated_items, self.CART_TTL
@@ -156,8 +163,7 @@ class CartService:
         items = cart["items"]
 
         updated_items = [
-            item for item in items
-            if item["product_id"] != str(product_id)
+            item for item in items if item["product_id"] != str(product_id)
         ]
 
         await self.cart_crud.set_redis_items(
@@ -169,8 +175,11 @@ class CartService:
             "total_items": sum(i["quantity"] for i in updated_items),
         }
 
-
-    async def sync_to_db(self, user_id: UUID, items: list,):
+    async def sync_to_db(
+        self,
+        user_id: UUID,
+        items: list,
+    ):
         """
         Sync Redis cart to PostgreSQL.
         Must be called from router BackgroundTasks.
@@ -190,10 +199,8 @@ class CartService:
 
             await self.session.commit()
 
-
         except Exception as e:
             await self.session.rollback()
-
 
     async def clear_all(self, redis, user_id: UUID):
         """
@@ -201,6 +208,3 @@ class CartService:
         """
         await self.cart_crud.delete_redis_cart(redis, user_id)
         await self.cart_crud.clear_db_cart(user_id)
-
-
-
