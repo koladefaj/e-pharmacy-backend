@@ -26,11 +26,11 @@ async def signup(
     
     """
 
-    return await service.register_customer(user_in=user_data.dict(), background_tasks=backgroundtasks)
+    return await service.register_customer(user_in=user_data.model_dump(), background_tasks=backgroundtasks)
 
 
 
-@router.post("/login")
+@router.post("/login", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute") # Protect against brute-force attacks
 async def login(
     request: Request,
@@ -46,7 +46,7 @@ async def login(
     )
     return data
 
-@router.post("/refresh")
+@router.post("/refresh", status_code=status.HTTP_200_OK)
 async def refresh_token(
     payload: RefreshTokenRequest,
     service: AuthService = Depends(get_service(AuthService))

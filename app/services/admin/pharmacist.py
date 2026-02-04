@@ -60,6 +60,7 @@ class AdminPharmacistService:
             background_tasks.add_task(
                 self.notification_service.notify,
                 email=new_pharmacist.email,
+                phone=None,
                 channels=["email"],
                 message=msg
             )

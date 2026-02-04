@@ -1,7 +1,7 @@
 from uuid import UUID
 from decimal import Decimal
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class OrderListResponse(BaseModel):
@@ -11,5 +11,4 @@ class OrderListResponse(BaseModel):
     requires_prescription: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

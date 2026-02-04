@@ -8,7 +8,7 @@ from app.core.config import settings
 # --- Config ---
 SENDGRID_API_KEY = settings.sendgrid_api_key
 FROM_EMAIL = settings.email_from
-TO_EMAIL = "your_email_here@gmail.com"  # Change to your email
+TO_EMAIL = "koladefajimi2004@gmail.com"  # Change to your email
 
 if not SENDGRID_API_KEY or not FROM_EMAIL or not TO_EMAIL:
     print("Please set SENDGRID_API_KEY, EMAIL_FROM, and TO_EMAIL properly.")

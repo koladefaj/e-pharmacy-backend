@@ -23,7 +23,7 @@ router = APIRouter(
     response_model=PrescriptionStatusResponse,
 )
 async def upload_prescription(
-    order_id: str,
+    order_id: UUID,
     file: UploadFile = File(...),
     service: PrescriptionService = Depends(get_service(PrescriptionService)),
     current_user=Depends(get_current_user),

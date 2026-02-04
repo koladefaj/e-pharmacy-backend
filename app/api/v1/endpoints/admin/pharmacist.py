@@ -36,7 +36,7 @@ async def create_pharmacist(
     
     """
 
-    pharmacist = await service.register_pharmacist(user_in=user_data.dict(), background_tasks=backgroundtasks)
+    pharmacist = await service.register_pharmacist(user_in=user_data.model_dump(), background_tasks=backgroundtasks)
 
     logger.info(
         f"ADMIN_ACTION: Pharmacist created | "

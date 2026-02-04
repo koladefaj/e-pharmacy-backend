@@ -40,7 +40,7 @@ class PrescriptionRejectRequest(BaseModel):
         min_length=5,
         max_length=500,
         description="Reason for rejecting the prescription",
-        example="Prescription image is blurry and unreadable",
+        json_schema_extra={"example": "Prescription image is blurry and unreadable"},
     )
 
 
@@ -52,5 +52,4 @@ class PendingPrescriptionResponse(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

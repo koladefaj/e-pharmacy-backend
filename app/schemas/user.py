@@ -22,7 +22,7 @@ class BaseSchema(BaseModel):
 class UserBase(BaseSchema):
     full_name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    phone_number: PhoneNumber = Field(..., example="+234800000000")
+    phone_number: PhoneNumber = Field(..., json_schema_extra={"example": "+234800000000"},)
     address: str
     date_of_birth: date
 

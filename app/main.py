@@ -21,6 +21,11 @@ from app.core.limiter import limiter
 from app.core.deps import get_redis
 from fastapi.responses import JSONResponse
 from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
+from app.core.ssl import configure_ssl
+
+
+
+
 
 
 
@@ -29,6 +34,7 @@ from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVer
 setup_logging()
 logger = logging.getLogger(__name__)
 
+configure_ssl()
 
 # APP INITIALIZATION 
 allowed_hosts = os.getenv("ALLOWED_HOSTS", "*").split(",")

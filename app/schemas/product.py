@@ -9,9 +9,9 @@ from uuid import UUID
 
 # Inventory Based
 class BatchBase(BaseModel):
-    batch_number: str = Field(..., min_length=1, max_length=100, example="BN-2026-001")
-    initial_quantity: int = Field(..., gt=0, example=100)
-    price: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2, example=45.50)
+    batch_number: str = Field(..., min_length=1, max_length=100, json_schema_extra={"example": "BN-2026-001"})
+    initial_quantity: int = Field(..., gt=0, json_schema_extra={"example": "100"})
+    price: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2, json_schema_extra={"example": 45.50})
     expiry_date: datetime
 
 
@@ -55,7 +55,7 @@ class BatchRead(BatchBase):
 # Admin Schema for Products
 
 class ProductBase(BaseModel):
-    name: str = Field(..., example="Amoxicillin 500mg")
+    name: str = Field(..., json_schema_extra={"example": "Amoxicillin 500mg"})
     category: CategoryEnum
     active_ingredients: str | None = None
     prescription_required: bool = False

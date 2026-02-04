@@ -51,7 +51,7 @@ async def add_to_cart(
 
 
 # VIEW CART
-@router.get("/cart", status_code=status.HTTP_200_OK)
+@router.get("", status_code=status.HTTP_200_OK)
 async def view_cart(
     current_user: User = Depends(get_current_customer),
     service: CartService = Depends(get_service(CartService)),
@@ -65,7 +65,7 @@ async def view_cart(
 
 
 # UPDATE CART ITEM
-@router.patch("/cart/update", status_code=status.HTTP_200_OK)
+@router.patch("/update", status_code=status.HTTP_200_OK)
 async def update_cart_item(
     item_in: CartItemCreate,
     background_tasks: BackgroundTasks,
@@ -100,7 +100,7 @@ async def update_cart_item(
 
 # REMOVE SINGLE ITEM
 @router.delete(
-    "/cart/remove/{product_id}",
+    "/remove/{product_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def remove_cart_item(
@@ -131,7 +131,7 @@ async def remove_cart_item(
 
 
 # CLEAR CART
-@router.delete("/cart/clear", status_code=status.HTTP_200_OK)
+@router.delete("/clear", status_code=status.HTTP_200_OK)
 async def clear_cart(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_customer),
