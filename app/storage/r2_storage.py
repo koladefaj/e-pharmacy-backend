@@ -1,5 +1,6 @@
 import os
 import logging
+import tempfile
 from io import BytesIO
 import boto3
 from app.storage.base import StorageInterface
@@ -45,7 +46,8 @@ class R2Storage(StorageInterface):
 
     def get_file_path(self, file_id: str) -> str:
         safe_name = file_id.replace("/", "_")
-        temp_path = f"/tmp/{safe_name}"
+        with tempfile.NamedTemporaryFile(prefix=safe_name, delete=False) as tmp_file:
+            temp_path = tmp_file.name
 
         if os.path.exists(temp_path):
             return temp_path
