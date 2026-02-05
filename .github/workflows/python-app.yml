@@ -1,0 +1,131 @@
+name: E-pharmacy CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # 1️⃣ LINT JOB: PEP8 & code quality
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install Ruff
+        run: pip install ruff
+      - name: Lint with Ruff
+        run: ruff check .
+
+  # 2️⃣ TEST JOB: Runs pytest + Security scans
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install dependencies
+        run: poetry install
+      # 🔒 Security Scan: Bandit
+      - name: Run Bandit (Python security linter)
+        run: poetry run bandit -r . -ll
+      # 🔒 Security Scan: Safety
+      - name: Install Safety
+        run: pip install safety
+      - name: Check dependencies for vulnerabilities
+        run: poetry export -f requirements.txt --without-hashes | safety check --stdin
+      # ✅ Run tests
+      - name: Run Pytest
+        env:
+          ENV: testing
+          DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/test_db
+          DATABASE_SYNC_URL: postgresql://user:password@localhost:5432/test_db
+          DB_PORT: 5432
+          REDIS_URL: redis://localhost:6379/0
+          REDIS_PORT: 6379
+          STRIPE_SECRET_KEY: sk_test_fake
+          STRIPE_WEBHOOK_SECRET: whsec_fake
+          S3_BUCKET: prescription-bucket
+          S3_ENDPOINT: https://bd0bdfae1b752ff572e62bbc3391ddf1.r2.cloudflarestorage.com
+          S3_ACCESS_KEY: fake
+          S3_SECRET_KEY: fake
+          S3_REGION: auto
+          STORAGE: r2
+          SENDGRID_API_KEY: fake
+          EMAIL_FROM: fake@fakemail.com
+          SECRET_KEY: fake
+          ACCESS_TOKEN_EXPIRE_MINUTES: 15
+          REFRESH_TOKEN_EXPIRE_DAYS: 7
+          JWT_ALGORITHM: HS256
+        run: poetry run pytest
+
+  # 3️⃣ BUILD & PUSH: Docker
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest
+
+  # 4️⃣ SECURITY SCAN: Docker image (Trivy)
+  security-scan:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest
+          format: table
+          exit-code: 1  # Fail workflow if vulnerabilities found
+
+  # # 5️⃣ DEPLOY: Railway
+  # deploy:
+  #   needs: security-scan
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install Railway CLI
+  #       run: npm install -g @railway/cli
+  #     - name: Deploy to Railway
+  #       run: railway up --detach --service 
+  #       env:
+  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

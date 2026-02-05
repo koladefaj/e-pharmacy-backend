@@ -46,9 +46,10 @@ class PaymentService:
 
         if order.status != OrderStatus.READY_FOR_PAYMENT:
             raise ValueError("Order is not ready for payment")
-
-        if not await redis.hget(f"checkout:{order.customer_id}"):
+        
+        if not await redis.exists(f"checkout:{order.customer_id}"):
             raise ValueError("Checkout session expired")
+
 
         # Reuse existing intent
         if order.payment_intent_id:

@@ -1,9 +1,33 @@
-version: '3.9'
 
 services:
+  
+  backend:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+    deploy:
+      resources:
+        limits:
+          memory: 1G  # Keeps the backend from eating too much RAM
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+
   postgres:
     image: postgres:18-alpine
-    container_name: e_pharmacy_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -27,7 +51,6 @@ services:
 
   redis:
     image: redis:latest
-    container_name: e_pharmacy_redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -42,6 +65,8 @@ services:
       resources:
         limits:
           memory: 512M
+
+
 
 volumes:
   postgres_data:

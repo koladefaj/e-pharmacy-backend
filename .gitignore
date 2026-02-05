@@ -3,6 +3,7 @@
 .env.local
 .env.docker
 .venv/
+app/scripts
 
 # Python
 __pycache__/
