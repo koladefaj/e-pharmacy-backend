@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.db.enums import PrescriptionStatus
 
 
-# Base Respoonse
+# BASE RESPOONSE
 class PrescriptionBaseResponse(BaseModel):
 
     id: UUID

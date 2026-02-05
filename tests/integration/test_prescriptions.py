@@ -1,6 +1,5 @@
 import pytest
-from io import BytesIO
-from uuid import uuid4, UUID
+import uuid
 from app.db.enums import PrescriptionStatus, OrderStatus
 
 @pytest.mark.asyncio
@@ -27,7 +26,7 @@ async def test_pharmacist_list_pending(client, pharmacist_token, db_session, tes
     """Test pharmacist can see pending prescriptions."""
     from app.models.prescription import Prescription
     presc = Prescription(
-        id=uuid4(),
+        id=uuid.uuid4(),
         user_id=test_customer.id,
         order_id=sample_order.id,
         file_path="prescriptions/test.pdf",
@@ -47,9 +46,9 @@ async def test_pharmacist_list_pending(client, pharmacist_token, db_session, tes
 async def test_approve_prescription_flow(client, pharmacist_token, db_session, test_customer, sample_order):
     from app.models.prescription import Prescription
     
-    # Setup - Prescription matches PrescriptionStatus.PENDING (This exists!)
+    # Setup - Prescription matches PrescriptionStatus.PENDING
     presc = Prescription(
-        id=uuid4(),
+        id=uuid.uuid4(),
         user_id=test_customer.id,
         order_id=sample_order.id,
         file_path="prescriptions/test.pdf",
@@ -65,7 +64,6 @@ async def test_approve_prescription_flow(client, pharmacist_token, db_session, t
     )
 
     assert response.status_code == 200
-    # Your Service correctly maps this to READY_FOR_PAYMENT
     await db_session.refresh(sample_order)
     assert sample_order.status == OrderStatus.READY_FOR_PAYMENT
 
@@ -75,7 +73,7 @@ async def test_reject_prescription_flow(client, pharmacist_token, db_session, te
     """Test rejection flow: Order is cancelled and reason is recorded."""
     from app.models.prescription import Prescription
     presc = Prescription(
-        id=uuid4(),
+        id=uuid.uuid4(),
         user_id=test_customer.id,
         order_id=sample_order.id,
         file_path="prescriptions/test.pdf",

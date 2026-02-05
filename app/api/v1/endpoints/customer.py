@@ -23,7 +23,7 @@ async def storefront_list(
     service: ProductService = Depends(get_service(ProductService)),
 ):
     """Public Storefront: Shows only active products with stock."""
-    # Validation stays in the router (it's an HTTP concern)
+    # Validation stays in the router
     valid_categories = ["otc", "supplement", "prescription", "medical_device"]
     if category and category not in valid_categories:
         raise HTTPException(
@@ -38,7 +38,7 @@ async def storefront_list(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_account(
-    current_user: User = Depends(get_current_customer), # Dependency that gets the logged-in user
+    current_user: User = Depends(get_current_customer),
     service: UserService = Depends(get_service(UserService))
 ):
     """

@@ -63,7 +63,7 @@ class CheckoutService:
 
         # Validate inventory + build order items
         for item in cart["items"]:
-            product = await self.session.get(Product, item["product_id"])
+            product = await self.session.get(Product, UUID(item["product_id"]))
 
             if not product:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Product {item.product_id} not found")

@@ -39,7 +39,7 @@ async def add_to_cart(
         quantity=item_in.quantity,
     )
 
-    # Background DB sync (SAFE)
+    # Background DB sync
     background_tasks.add_task(
         service.sync_to_db,
         user_id=current_user.id,
@@ -84,7 +84,7 @@ async def update_cart_item(
         quantity=item_in.quantity,
     )
 
-    # Background DB sync (SAFE)
+    # Background DB sync
     background_tasks.add_task(
         service.sync_to_db,
         user_id=current_user.id,

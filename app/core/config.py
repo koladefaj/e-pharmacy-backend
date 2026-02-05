@@ -25,7 +25,6 @@ class Settings(BaseSettings):
     @field_validator("database_url", "redis_url", "celery_broker_url", "celery_result_backend", mode="after")
     @classmethod
     def adjust_urls_for_docker(cls, v: str) -> str:
-        # Skip if on Railway (Railway handles its own URLs)
         if os.environ.get("RAILWAY_ENVIRONMENT_ID"):
             return v
             
@@ -60,9 +59,6 @@ class Settings(BaseSettings):
     # EMAIL PROVIDER
     sendgrid_api_key: SecretStr
     email_from: str
-
-
-
 
 
     model_config = SettingsConfigDict(

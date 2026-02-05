@@ -4,10 +4,10 @@ from typing import Annotated
 from datetime import date
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, AfterValidator
 
-# Regex for international phone numbers: +[CountryCode][Number]
+# REGEX FOR INTERNATIONAL PHONE NUMBERS: +[COUNTRYCODE][NUMBER]
 PHONE_REGEX = r"^\+?[1-9]\d{1,14}$"
 
-# Create a reusable, validated type
+# CREATE A REUSABLE, VALIDATED TYPE
 def validate_phone_number(v: str) -> str:
     if not re.match(PHONE_REGEX, v):
         raise ValueError("Invalid phone number format")
@@ -34,7 +34,7 @@ class UserBase(BaseSchema):
         return v
 
 
-# Login Request
+# LOGIN REQUEST
 class LoginRequest(BaseModel):
     """Schema for user login credentials."""
     email: EmailStr = Field(..., description="User email address")
@@ -58,7 +58,7 @@ class DeletePharmacistRequest(BaseSchema):
     email: EmailStr
     
 
-# Change Password Request
+# CHANGE PASSWORD REQUEST
 class ChangePasswordRequest(BaseModel):
     old_password: str = Field(..., min_length=8)
     new_password: str = Field(..., min_length=8)

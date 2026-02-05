@@ -28,6 +28,7 @@ class UserCRUD:
     async def create_user(self, user_data: dict) -> User:
         new_user = User(**user_data)
         self.session.add(new_user)
+
         # We use flush here so the ID is populated, but commit happens in Service
         await self.session.flush() 
         return new_user
@@ -43,7 +44,7 @@ class UserCRUD:
         return result.scalars().all()
 
     async def verify_pharmacist(self, *, db_obj: User, obj_in: PharmacistApproveSchema):
-        # This just updates the fields and saves
+        
         db_obj.license_verified = True 
         db_obj.is_active = True
     

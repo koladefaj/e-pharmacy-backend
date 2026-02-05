@@ -122,11 +122,11 @@ class CartService:
 
         items = cart["items"]
         updated_items = []
-        found = False  # <--- 1. Initialize a flag
+        found = False  # Initialize a flag
 
         for item in items:
             if item["product_id"] == str(product_id):
-                found = True  # <--- 2. Mark as found
+                found = True  # Mark as found
                 if quantity > 0:
                     updated_items.append(
                         {"product_id": str(product_id), "quantity": quantity}
@@ -135,7 +135,7 @@ class CartService:
             else:
                 updated_items.append(item)
 
-        # <--- 3. Check if the item was actually in the cart
+        # Check if the item was actually in the cart
         if not found:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Item not found in cart"
@@ -193,7 +193,7 @@ class CartService:
                         user_id=user_id,
                         product_id=UUID(item["product_id"]),
                         quantity=item["quantity"],
-                        price_at_add=0.0,  # Can be replaced later with batch.price
+                        price_at_add=0.0,
                     )
                 )
 

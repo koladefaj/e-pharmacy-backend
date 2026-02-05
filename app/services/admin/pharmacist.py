@@ -94,7 +94,7 @@ class AdminPharmacistService:
         # Anonymize and Deactivate
         user.is_active = False
         user.email = f"deleted_pharma_{user.id}@deleted.local"
-        user.hashed_password = "DEACTIVATED_PHARMACIST" # No need to hash if inactive
+        user.hashed_password = "DEACTIVATED_PHARMACIST" 
         
         # clear license info for GDPR/Privacy
         if hasattr(user, 'license_number'):

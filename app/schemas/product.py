@@ -7,7 +7,7 @@ from uuid import UUID
 
 
 
-# Inventory Based
+# INVENTORY BASED
 class BatchBase(BaseModel):
     batch_number: str = Field(..., min_length=1, max_length=100, json_schema_extra={"example": "BN-2026-001"})
     initial_quantity: int = Field(..., gt=0, json_schema_extra={"example": "100"})
@@ -52,7 +52,7 @@ class BatchRead(BatchBase):
 
 
 
-# Admin Schema for Products
+# ADMIN SCHEMA FOR PRODUCTS
 
 class ProductBase(BaseModel):
     name: str = Field(..., json_schema_extra={"example": "Amoxicillin 500mg"})

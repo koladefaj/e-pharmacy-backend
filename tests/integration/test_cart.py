@@ -1,7 +1,7 @@
 import pytest
-from uuid import uuid4
-from unittest.mock import AsyncMock
-from fastapi import HTTPException
+
+
+
 
 @pytest.mark.asyncio
 async def test_add_item_success(client, customer_token, storefront_data, mock_redis):
@@ -14,7 +14,7 @@ async def test_add_item_success(client, customer_token, storefront_data, mock_re
         "quantity": 2
     }
 
-    # Calling the API endpoint (assumes /api/v1/cart/add)
+    # Calling the API endpoint
     response = await client.post(
         "/api/v1/cart/add",
         json=payload,
@@ -72,7 +72,7 @@ async def test_increment_existing_item(client, customer_token, storefront_data, 
 async def test_add_item_insufficient_stock(client, customer_token, storefront_data, mock_redis):
     """Test that adding more than available stock fails."""
     product_id = str(storefront_data["otc"].id)
-    # If your fixture creates 100 items, try to add 101
+    # If fixture creates 100 items, try to add 101
     payload = {
         "product_id": product_id,
         "quantity": 101
@@ -92,10 +92,10 @@ async def test_removes_product(client, customer_token, storefront_data, mock_red
     """Test that updating quantity to 0 removes the item."""
     product_id = str(storefront_data["otc"].id)
     
-    # 1. Add first
+    # Add first
     await client.post("/api/v1/cart/add", json={"product_id": product_id, "quantity": 5}, headers=customer_token)
     
-    # 2. Update to 0
+    # Update to 0
     response = await client.delete(
         f"/api/v1/cart/remove/{product_id}",
         headers=customer_token
@@ -114,4 +114,4 @@ async def test_clear_cart(client, customer_token, storefront_data, mock_redis):
 
     response = await client.delete("/api/v1/cart/clear", headers=customer_token)
     
-    assert response.status_code == 200 # Or 200 depending on your router
+    assert response.status_code == 200 

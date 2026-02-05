@@ -1,5 +1,6 @@
-import asyncio
+import stripe
 import os
+import json
 import tempfile
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -30,13 +31,8 @@ from app.services.prescription_service import PrescriptionService
 from app.core.deps import get_service
 
 
-# Disable rate limiting globally
-patcher = patch(
-    "slowapi.extension.Limiter.limit",
-    side_effect=lambda *args, **kwargs: lambda f: f,
-)
-patcher.start()
 
+# DISABLE RATE LIMITING GLOBALLY
 app.state.limiter_enabled = False
 
 
@@ -64,18 +60,16 @@ def test_app():
     return app
 
 
+
 @pytest.fixture(scope="session", autouse=True)
-def stop_patcher():
+def disable_rate_limiter():
+    patcher = patch(
+        "slowapi.extension.Limiter.limit",
+        side_effect=lambda *args, **kwargs: lambda f: f,
+    )
+    patcher.start()
     yield
     patcher.stop()
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
 
 @pytest.fixture(scope="function", autouse=True)
 async def setup_db():
@@ -100,6 +94,21 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     async with TestingAsyncSessionLocal() as session:
         yield session
 
+@pytest.fixture(scope="session", autouse=True)
+async def close_engine():
+    yield
+    await engine.dispose()
+
+
+
+@pytest.fixture(autouse=True)
+def block_real_r2_storage(monkeypatch, mock_storage_service):
+    monkeypatch.setattr(
+        "app.storage.r2_storage.R2Storage",
+        lambda *args, **kwargs: mock_storage_service,
+    )
+
+
 
 
 # MOCKS
@@ -122,6 +131,64 @@ def mock_redis():
     redis.delete = AsyncMock(side_effect=delete_val)
     redis.execute_command = AsyncMock()
     return redis
+
+
+
+@pytest.fixture(autouse=True)
+def mock_stripe(monkeypatch):
+    """Mock PaymentIntent.create to avoid real Stripe calls."""
+
+    def fake_create(**kwargs):
+        # Fake PaymentIntent object
+        mock_intent = MagicMock()
+        mock_intent.id = f"pi_{uuid.uuid4().hex}"
+        mock_intent.client_secret = "secret_123"
+        mock_intent.metadata = kwargs.get("metadata", {})
+        return mock_intent
+
+    # Patch the correct import path of stripe.PaymentIntent.create
+    monkeypatch.setattr(
+        "app.services.payment_service.stripe.PaymentIntent.create",
+        fake_create
+    )
+    yield
+
+@pytest.fixture(autouse=True)
+def mock_stripe_webhook(monkeypatch):
+    """Mock Webhook.construct_event to bypass signature verification."""
+
+    class FakeStripePaymentIntent:
+        def __init__(self, payload):
+            self.id = payload.get("id", f"pi_{uuid.uuid4().hex}")
+            self.metadata = payload.get("metadata", {})
+
+    class FakeStripeEvent:
+        def __init__(self, payload: dict):
+            self.id = payload.get("id", f"evt_{uuid.uuid4().hex}")
+            self.type = payload.get("type", "payment_intent.succeeded")
+            obj_data = payload.get("data", {}).get("object", {})
+            self.data = MagicMock(object=FakeStripePaymentIntent(obj_data))
+
+        def to_dict(self):
+            return {
+                "id": self.id,
+                "type": self.type,
+                "data": {"object": self.data.object.__dict__},
+            }
+
+    def fake_construct(payload_bytes, sig_header=None, secret=None):
+        if isinstance(payload_bytes, bytes):
+            payload_dict = json.loads(payload_bytes.decode("utf-8"))
+        else:
+            payload_dict = payload_bytes
+        return FakeStripeEvent(payload_dict)
+
+    monkeypatch.setattr(
+        "app.services.payment_service.stripe.Webhook.construct_event",
+        fake_construct
+    )
+    yield
+
 
 
 @pytest.fixture
@@ -338,12 +405,24 @@ def override_dependencies(test_app, db_session, mock_storage_service, mock_redis
     async def _get_test_session():
         yield db_session
 
-    def _get_prescription_service():
+    # Define the factory that PaymentService uses
+    def _get_test_db_factory():
+        class AsyncSessionContextManager:
+            async def __aenter__(self):
+                return db_session 
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass 
+        return AsyncSessionContextManager
+    
+
+    def _get_prescription_service(session: AsyncSession = None):
         return PrescriptionService(
-            session=db_session,
+            session=session,
             storage=mock_storage_service,
         )
 
+    from app.core.deps import get_session_factory
+    test_app.dependency_overrides[get_session_factory] = _get_test_db_factory
     test_app.dependency_overrides[get_async_session] = _get_test_session
     test_app.dependency_overrides[get_storage] = lambda: mock_storage_service
     test_app.dependency_overrides[get_service(PrescriptionService)] = _get_prescription_service

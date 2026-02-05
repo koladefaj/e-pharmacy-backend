@@ -1,14 +1,12 @@
 import stripe
 from redis import Redis
-from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
-from app.db.sessions import get_async_session, AsyncSessionLocal
-from app.core.deps import get_redis, get_current_customer, get_notification_service, get_service
+from app.db.sessions import get_async_session
+from app.core.deps import get_redis, get_current_customer, get_service, get_session_factory
 from app.models.user import User
 from app.models.order import Order
 from app.services.payment_service import PaymentService
@@ -40,6 +38,7 @@ async def create_payment_intent(
 async def stripe_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
+    db_factory = Depends(get_session_factory),
     redis: Redis = Depends(get_redis),
     service: PaymentService = Depends(get_service(PaymentService))
     
@@ -58,9 +57,9 @@ async def stripe_webhook(
     
 
     return await service.handle_webhook(
-        event=event.to_dict(),
+        event=event,
         redis=redis,
-        db_factory=AsyncSessionLocal,
+        db_factory=db_factory,
         background_tasks=background_tasks,
     )
 

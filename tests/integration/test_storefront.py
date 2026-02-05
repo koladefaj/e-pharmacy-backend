@@ -12,6 +12,7 @@ async def test_customer_list_products_filter_by_category(client, storefront_data
     # Assertions
     assert len(data) >= 1
     assert data[0]["name"] == "Vitamin C 1000mg"
+    
     # Ensure Amoxicillin (Antibiotic) is NOT in these results
     assert all(item["category"] == "supplement" for item in data)
 

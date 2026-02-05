@@ -50,7 +50,7 @@ async def create_pharmacist(
 @router.delete("/{email}", status_code=status.HTTP_204_NO_CONTENT)
 async def admin_delete_pharmacist(
     email: str,
-    current_admin: User = Depends(get_current_admin), # Protected admin dependency
+    current_admin: User = Depends(get_current_admin),
     service: AdminPharmacistService = Depends(get_service(AuthService))
 ):
     """

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
 from uuid import UUID
-from app.core.deps import get_current_customer, get_service, get_notification_service
+from app.core.deps import get_current_customer, get_service
 from app.models.user import User
 from app.schemas.order import OrderListResponse
 from app.services.order_service import OrderService

@@ -40,24 +40,6 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit= False,
 )
 
-# SYNC ENGINE CONFIG (Celery / Scripts)
-
-sync_engine = create_engine(
-    db_url,
-    echo=False,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    future=True,
-)
-
-
-SessionLocal = sessionmaker(
-    bind=sync_engine,
-    autoflush=False,
-    autocommit=False,
-    expire_on_commit=False
-)
 
 # FASTAPI DEPENDENCY
 async def get_async_session() -> AsyncSession:
@@ -75,16 +57,6 @@ async def get_async_session() -> AsyncSession:
         finally:
             await session.close()
 
-# CELERY / WORKER USAGE
-
-def get_sync_session() -> Session:
-    """
-    Standard synchronous DB session provider for Celery workers.
-    
-    """
-    
-    logger.debug("Database: Creating new synchronous session for worker.")
-    return SessionLocal()
 
 # CONTEXT MANAGER
 

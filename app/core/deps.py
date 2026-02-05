@@ -13,10 +13,9 @@ from app.core.roles import UserRole
 from app.storage.base import StorageInterface
 from app.services.notification.notification_service import NotificationService
 from app.storage.r2_storage import R2Storage
-from app.core.config import settings
 from app.db.sessions import get_async_session
 from app.models import User
-from redis.asyncio import Redis
+
 
 # Initialize logger for security events
 logger = logging.getLogger(__name__)
@@ -78,7 +77,7 @@ async def get_current_user(
     # DATABASE VERIFICATION
     
     # Convert the string user_id into a proper UUID object.
-    # SQLAlchemy's Uui
+    # SQLAlchemy's UUID
     try:
         user_uuid = uuid.UUID(user_id_str)
     except (ValueError, AttributeError):
@@ -161,6 +160,9 @@ def get_allowed_password_changers(current_user: User = Depends(get_current_user)
         )
     return current_user
 
+
+# SERVICE DEPENDENCIES
+
 async def get_redis() -> Redis:
     return redis_client
 
@@ -173,6 +175,11 @@ def get_storage() -> StorageInterface:
 
 def get_notification_service() -> NotificationService:
     return NotificationService()
+
+from app.db.sessions import AsyncSessionLocal
+
+def get_session_factory():
+    return AsyncSessionLocal
 
 def get_service(service_cls: Type[T]):
     def _get(

@@ -1,5 +1,5 @@
 import pytest
-from uuid import uuid4
+import uuid
 from fastapi import status
 
 @pytest.mark.asyncio
@@ -8,7 +8,7 @@ async def test_add_inventory_batch_success(client, pharmacist_token, sample_prod
     
     product_id = sample_product.id
     payload = {
-        "batch_number": f"BATCH-{uuid4().hex[:6].upper()}",
+        "batch_number": f"BATCH-{uuid.uuid4().hex[:6].upper()}",
         "initial_quantity": 100,
         "price": 45.50,
         "expiry_date": "2026-12-31T23:59:59"

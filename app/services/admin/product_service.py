@@ -18,8 +18,7 @@ class AdminProductService:
     async def create_product(self, product_in: ProductCreate):
         """Pure product creation (Metadata only)"""
         product = await self.product_crud.create_new_product(obj_in=product_in)
-        # We don't commit here if we want the caller to decide, 
-        # but usually for standalone creation, we do:
+        
         await self.session.commit()
         await self.session.refresh(product)
         return product
@@ -39,7 +38,7 @@ class AdminProductService:
         """Business logic to flip a product's active status."""
         product = await self.session.get(Product, product_id)
         if not product:
-            # This will be caught by your global handler in main.py
+            
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Product not found"

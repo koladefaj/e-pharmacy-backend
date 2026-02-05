@@ -19,15 +19,38 @@ class CartCRUD:
     
     # REDIS OPERATIONS
     async def get_redis_items(self, redis: Redis, user_id: UUID) -> List[Dict]:
+
         data = await redis.get(self._key(user_id))
+
         if not data:
             return []
+        
+        if isinstance(data, bytes):
+            data = data.decode("utf-8")
 
         try:
-            return json.loads(data)
+            payload = json.loads(data)
         except json.JSONDecodeError:
             await redis.delete(self._key(user_id))
             return []
+        
+        if isinstance(payload, dict):
+            items = payload.get("items", [])
+
+        elif isinstance(payload, list):  # backward compatibility
+            items = payload
+            
+        else:
+            await redis.delete(self._key(user_id))
+            return []
+
+
+        if not isinstance(items, list):
+            await redis.delete(self._key(user_id))
+            return []
+
+        return items
+
 
     async def set_redis_items(
         self,
@@ -36,7 +59,12 @@ class CartCRUD:
         items: List[Dict],
         ttl: int,
     ):
-        await redis.set(self._key(user_id), json.dumps(items), ex=ttl)
+        payload = {
+            "v": 1,
+            "items": items,
+        }
+        
+        await redis.set(self._key(user_id), json.dumps(payload), ex=ttl)
 
     async def delete_redis_cart(self, redis: Redis, user_id: UUID):
         await redis.delete(self._key(user_id))

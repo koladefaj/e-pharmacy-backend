@@ -60,7 +60,7 @@ class CRUDProduct:
         """Fetch all active products and their associated inventory batches."""
         stmt = (
             select(Product)
-            .options(selectinload(Product.batches))  # 👈 This is the magic line
+            .options(selectinload(Product.batches))
             .where(Product.is_active == active)
             .offset(skip)
             .limit(limit)
@@ -91,7 +91,7 @@ class CRUDProduct:
         self, *, product_id: UUID, obj_in: BatchCreate
     ) -> InventoryBatch:
         """Create a new batch record with business logic."""
-        # Mix the validated data with system-required fields
+       
         existing = await self.session.execute(
             select(InventoryBatch).where(
                 InventoryBatch.batch_number == obj_in.batch_number
@@ -103,7 +103,7 @@ class CRUDProduct:
                 detail="This batch number is already assigned to a product.",
             )
 
-        # Inside create_new_batch...
+        
         product = await self.session.get(Product, product_id)
         if not product:
             raise HTTPException(
@@ -115,7 +115,7 @@ class CRUDProduct:
 
         data = obj_in.model_dump()
         data["product_id"] = product_id
-        data["current_quantity"] = obj_in.initial_quantity  # Crucial for new batches
+        data["current_quantity"] = obj_in.initial_quantity
 
         db_obj = InventoryBatch(**data)
         self.session.add(db_obj)
@@ -224,7 +224,7 @@ class CRUDProduct:
 
         await self.session.commit()
 
-    # In your CRUD or a Service layer
+
     async def get_available_products(
         self,
     ):
@@ -253,7 +253,7 @@ class CRUDProduct:
         skip: int = 0,
         limit: int = 20,
     ):
-        # Initialize stmt immediately so it's never "unbound"
+        
         stmt = select(Product).options(selectinload(Product.batches))
 
         # Apply filters

@@ -28,7 +28,7 @@ async def create_new_product(
     current_admin: User = Depends(get_current_admin)
 ):
     """Admin only: Add a new drug definition to the Catalog."""
-    # Logic is now inside the service
+   
     return await service.create_product(body)
 
 @router.get("/all", response_model=List[ProductWithBatches])
@@ -41,11 +41,9 @@ async def list_products_admin(
     """
     Admin only: Get all products (active + inactive) for management.
     """
-    # We return the list directly; if you want the {"products": []} wrapper, 
-    # adjust your response_model or the return statement here.
     return await service.get_admin_catalog(skip=skip, limit=limit)
 
-# Example of a mixed route (Admin)
+# SWITCH BETWEEN ACTIVE AND INACTIVE STATES
 @router.patch("/{product_id}/toggle-active")
 async def toggle_product_active(
     product_id: UUID,

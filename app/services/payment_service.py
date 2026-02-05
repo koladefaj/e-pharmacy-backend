@@ -87,9 +87,9 @@ class PaymentService:
 
     # STRIPE WEBHOOK ENTRYPOINT
     async def handle_webhook(
-        self, *, event: dict, redis, db_factory, background_tasks: BackgroundTasks
+        self, *, event: stripe.Event, redis, db_factory, background_tasks: BackgroundTasks
     ) -> dict:
-        event_id = event["id"]
+        event_id = event.get("id") if isinstance(event, dict) else getattr(event, "id", None)
         event_key = f"stripe:event:{event_id}"
 
         # Idempotency
@@ -98,12 +98,12 @@ class PaymentService:
 
         await redis.set(event_key, "1", ex=STRIPE_EVENT_TTL)
 
-        event_type = event.get("type")
+        event_type = event.get("type") if isinstance(event, dict) else getattr(event, "type", None)
 
         if not event_type:
             return {"status": "invalid_event"}
 
-        data = event.get("data", {}).get("object")
+        data = event.data.object
         if not data:
             return {"status": "invalid_payload"}
 
@@ -162,16 +162,16 @@ class PaymentService:
                 logger.info("Inventory deducted for order %s", order.id)
 
                 try:
-                    # 1. Clear Redis first (Independent of DB session)
+                    # Clear Redis first (Independent of DB session)
                     await redis.delete(f"checkout:{order.customer_id}")
                     await redis.delete(f"cart:{order.customer_id}")
 
-                    # 2. Clear DB Cart using the service
+                    # Clear DB Cart using the service
                     # We pass the active 'db' session
                     cart_service = CartService(db)
                     await cart_service.clear_all(redis, order.customer_id)
 
-                    # 3. Must commit again because clear_db_cart performs a DELETE
+                    # Must commit again because clear_db_cart performs a DELETE
                     await db.commit()
                     logger.info("Cart cleared for user %s", order.customer_id)
                 except Exception as cart_err:
