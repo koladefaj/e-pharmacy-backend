@@ -57,7 +57,7 @@ class AdminProductService:
         return {
             "id": product.id,
             "is_active": product.is_active,
-            "message": f"Product status updated successfully."
+            "message": "Product status updated successfully."
         }
     
     async def remove_inventory_batch(self, batch_number: str, admin_email: str):

@@ -1,8 +1,7 @@
 import logging
-import base64  # Necessary for attachments
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import (
-    Mail, Attachment, FileContent, FileName, FileType, Disposition
+    Mail
 )
 from app.services.notification.base import NotificationChannel
 from app.core.config import settings

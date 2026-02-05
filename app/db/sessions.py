@@ -1,8 +1,5 @@
 import logging
-from contextlib import contextmanager
 from app.core.config import settings
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.engine import create_engine
 from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker, create_async_engine)
 
 # Initialize the logger for async database events
@@ -57,21 +54,3 @@ async def get_async_session() -> AsyncSession:
         finally:
             await session.close()
 
-
-# CONTEXT MANAGER
-
-@contextmanager
-def sync_session_scope():
-    """
-    Provide a transactional scope around a series of operations.
-    """
-    session = SessionLocal()
-    try:
-        yield session
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Database Scope Error: {e}")
-        raise
-    finally:
-        session.close()

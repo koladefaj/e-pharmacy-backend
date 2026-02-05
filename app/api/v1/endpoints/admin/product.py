@@ -1,5 +1,5 @@
 import logging
-from fastapi import Depends, APIRouter, Request, status
+from fastapi import Depends, APIRouter
 from starlette import status
 from app.models.user import User
 from typing import List
@@ -9,10 +9,6 @@ from app.services.admin.product_service import AdminProductService
 from app.schemas.product import ProductWithBatches, ProductCreate, ProductRead
 
 
-from app.schemas.product import (
-    ProductRead,
-    ProductCreate
-)
 
 
 # Initialize logger for security and audit events

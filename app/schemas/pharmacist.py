@@ -17,9 +17,6 @@ class PharmacistInDB(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PharmacistApproveSchema(BaseModel):
-    license_verified: bool
-
 
 class PharmacistRead(PharmacistInDB):
     """
@@ -27,6 +24,7 @@ class PharmacistRead(PharmacistInDB):
 
     """
     model_config = ConfigDict(from_attributes=True)
+
 class PharmacistInDB(BaseModel):
     id: UUID
     full_name: str
@@ -42,12 +40,3 @@ class PharmacistInDB(BaseModel):
 
 class PharmacistApproveSchema(BaseModel):
     license_verified: bool
-
-
-class PharmacistRead(PharmacistInDB):
-    """
-    Read all pharmacists
-
-    """
-
-    model_config = ConfigDict(from_attributes=True)

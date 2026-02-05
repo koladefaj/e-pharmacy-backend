@@ -3,9 +3,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.config import settings
 from app.db.sessions import get_async_session
-from app.core.deps import get_current_admin, get_service, get_notification_service
+from app.core.deps import get_current_admin, get_service
 from app.models.user import User
 from app.models.order import Order
 from app.services.payment_service import PaymentService

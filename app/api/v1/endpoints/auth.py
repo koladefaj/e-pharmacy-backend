@@ -4,7 +4,7 @@ from starlette import status
 from app.schemas.user import RegisterCustomerRequest, LoginRequest
 from app.services.auth_service import AuthService
 from app.schemas.user import RefreshTokenRequest
-from app.core.deps import get_service, get_notification_service
+from app.core.deps import get_service
 from app.core.limiter import limiter
 
 # Initialize logger for security and audit events

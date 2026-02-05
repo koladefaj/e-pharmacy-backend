@@ -1,4 +1,3 @@
-import asyncio
 from typing import List
 from app.services.notification.email import EmailNotification
 from app.services.notification.whatsapp import WhatsAppNotification

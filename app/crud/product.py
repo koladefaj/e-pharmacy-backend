@@ -3,7 +3,6 @@ from app.schemas.product import ProductCreate, BatchCreate
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.models.inventory import InventoryBatch
-from sqlalchemy.orm.attributes import set_committed_value
 from datetime import datetime, timezone
 from starlette import status
 from sqlalchemy import select
@@ -155,7 +154,7 @@ class CRUDProduct:
             select(InventoryBatch)
             .where(
                 InventoryBatch.product_id == product_id,
-                InventoryBatch.is_blocked == False,
+                not InventoryBatch.is_blocked,
                 InventoryBatch.expiry_date > datetime.now(timezone.utc),
                 InventoryBatch.current_quantity > 0,
             )
@@ -205,7 +204,7 @@ class CRUDProduct:
             select(InventoryBatch)
             .where(
                 InventoryBatch.product_id == product_id,
-                InventoryBatch.is_blocked == False,
+                not InventoryBatch.is_blocked,
             )
             .order_by(InventoryBatch.expiry_date.desc())
         )
@@ -232,10 +231,10 @@ class CRUDProduct:
             select(Product)
             .join(Product.batches)
             .where(
-                Product.is_active == True,
+                Product.is_active,
                 InventoryBatch.current_quantity > 0,
                 InventoryBatch.expiry_date > datetime.now(timezone.utc),
-                InventoryBatch.is_blocked == False,
+                not InventoryBatch.is_blocked,
             )
             .distinct()
         )
@@ -257,7 +256,7 @@ class CRUDProduct:
         stmt = select(Product).options(selectinload(Product.batches))
 
         # Apply filters
-        stmt = stmt.where(Product.is_active == True)
+        stmt = stmt.where(Product.is_active)
 
         if category:
             stmt = stmt.where(Product.category == category)
@@ -272,14 +271,3 @@ class CRUDProduct:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def delete_batch_by_number(self, batch_number: str) -> bool:
-        """Removes a batch from the database by its unique batch number."""
-        stmt = select(InventoryBatch).where(InventoryBatch.batch_number == batch_number)
-        result = await self.session.execute(stmt)
-        batch = result.scalar_one_or_none()
-
-        if batch:
-            await self.session.delete(batch)
-            await self.session.commit()
-            return True
-        return False

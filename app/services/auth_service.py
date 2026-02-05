@@ -6,9 +6,8 @@ from app.core.config import settings
 from jose import JWTError, jwt
 from app.core.roles import UserRole
 
-from app.models.user import User
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
-from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
+from app.core.exceptions import AuthenticationFailed, PasswordVerificationError
 from app.services.notification.notification_service import NotificationService
 from fastapi import BackgroundTasks
 
@@ -73,7 +72,7 @@ class AuthService:
 
         except Exception:
             await self.session.rollback()
-            logger.exception(f"Registration Crashed")
+            logger.exception("Registration Crashed")
             raise
 
 

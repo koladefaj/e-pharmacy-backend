@@ -199,7 +199,7 @@ class CartService:
 
             await self.session.commit()
 
-        except Exception as e:
+        except Exception:
             await self.session.rollback()
 
     async def clear_all(self, redis, user_id: UUID):

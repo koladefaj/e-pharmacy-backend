@@ -18,7 +18,6 @@ from app.api.v1.router import router as v1_router
 from app.core.config import settings
 from app.core.logging import setup_logging, request_id_var
 from app.core.limiter import limiter
-from app.core.deps import get_redis
 from fastapi.responses import JSONResponse
 from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
 from app.core.ssl import configure_ssl

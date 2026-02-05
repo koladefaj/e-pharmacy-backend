@@ -1,6 +1,5 @@
 import uuid
 from decimal import Decimal
-from typing import Optional
 
 from sqlalchemy import ForeignKey, Numeric, text, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship

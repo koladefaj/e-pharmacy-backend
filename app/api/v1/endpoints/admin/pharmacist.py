@@ -1,5 +1,5 @@
 import logging
-from fastapi import Depends, APIRouter, Request, status, BackgroundTasks
+from fastapi import Depends, APIRouter, Request, BackgroundTasks
 from starlette import status
 from app.models.user import User
 from typing import List
@@ -60,7 +60,7 @@ async def admin_delete_pharmacist(
     user = await service.deactivate_pharmacist_by_email(email)
 
     logger.info(f"Pharmacist account uid: {user.id} | email: {email} deactivated successfully. By {current_admin.email}")
-    return f"Pharmacist Account Deactivated"
+    return "Pharmacist Account Deactivated"
     
 
 @router.get("/all", response_model=List[PharmacistRead])

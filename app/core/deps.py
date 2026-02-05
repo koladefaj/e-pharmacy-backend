@@ -3,6 +3,7 @@ import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.sessions import AsyncSessionLocal
 from jose import jwt, JWTError
 from sqlalchemy import select
 from redis.asyncio import Redis
@@ -68,7 +69,7 @@ async def get_current_user(
             )
 
     except JWTError:
-        logger.warning(f"JWT Decode Failed")
+        logger.warning("JWT Decode Failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="Token is invalid or has expired"
@@ -176,7 +177,6 @@ def get_storage() -> StorageInterface:
 def get_notification_service() -> NotificationService:
     return NotificationService()
 
-from app.db.sessions import AsyncSessionLocal
 
 def get_session_factory():
     return AsyncSessionLocal

@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import Numeric, ForeignKey, DateTime, String, Boolean, func, Enum, text
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.base import Base
 from app.db.enums import OrderStatus

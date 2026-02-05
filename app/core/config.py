@@ -1,7 +1,7 @@
 import os
 import logging
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator, SecretStr
+from pydantic import field_validator, SecretStr
 
 
 logger = logging.getLogger(__name__)
