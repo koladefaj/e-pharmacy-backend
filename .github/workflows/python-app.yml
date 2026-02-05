@@ -2,12 +2,11 @@ name: E-pharmacy CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  # 1️⃣ LINT JOB: PEP8 & code quality
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -15,13 +14,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
       - name: Install Ruff
         run: pip install ruff
       - name: Lint with Ruff
         run: ruff check .
 
-  # 2️⃣ TEST JOB: Runs pytest + Security scans
   test:
     needs: lint
     runs-on: ubuntu-latest
@@ -32,34 +30,27 @@ jobs:
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
           POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
       redis:
         image: redis:alpine
-        ports:
-          - 6379:6379
 
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Install dependencies
         run: poetry install
-      # 🔒 Security Scan: Bandit
-      - name: Run Bandit (Python security linter)
+      - name: Run Bandit
         run: poetry run bandit -r . -ll
-      # 🔒 Security Scan: Safety
       - name: Install Safety
         run: pip install safety
-      - name: Check dependencies for vulnerabilities
+      - name: Check dependencies
         run: poetry export -f requirements.txt --without-hashes | safety check --stdin
-      # ✅ Run tests
       - name: Run Pytest
         env:
           ENV: testing
@@ -84,7 +75,6 @@ jobs:
           JWT_ALGORITHM: HS256
         run: poetry run pytest
 
-  # 3️⃣ BUILD & PUSH: Docker
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
@@ -96,14 +86,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest
 
-  # 4️⃣ SECURITY SCAN: Docker image (Trivy)
   security-scan:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -115,9 +104,8 @@ jobs:
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest
           format: table
-          exit-code: 1  # Fail workflow if vulnerabilities found
+          exit-code: 1
 
-  # # 5️⃣ DEPLOY: Railway
   # deploy:
   #   needs: security-scan
   #   runs-on: ubuntu-latest
@@ -126,6 +114,6 @@ jobs:
   #     - name: Install Railway CLI
   #       run: npm install -g @railway/cli
   #     - name: Deploy to Railway
-  #       run: railway up --detach --service 
+  #       run: railway up --detach --service 2dc14cfe-eae3-4516-bd22-187603657da4
   #       env:
   #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
