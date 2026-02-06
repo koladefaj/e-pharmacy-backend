@@ -1,16 +1,15 @@
 import logging
 from uuid import UUID
 
-from fastapi import Depends, APIRouter, BackgroundTasks
-from starlette import status
+from fastapi import APIRouter, BackgroundTasks, Depends
 from redis.asyncio import Redis
+from starlette import status
 
+from app.core.deps import get_current_customer, get_redis, get_service
 from app.models.user import User
 from app.schemas.cart import CartItemCreate
-from app.core.deps import get_current_customer, get_redis, get_service
-from app.services.checkout_service import CheckoutService
 from app.services.cart_service import CartService
-
+from app.services.checkout_service import CheckoutService
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,6 @@ async def add_to_cart(
     return {"message": "Cart updated", "cart": cart}
 
 
-
 # VIEW CART
 @router.get("", status_code=status.HTTP_200_OK)
 async def view_cart(
@@ -61,7 +59,6 @@ async def view_cart(
     Retrieve the current user's cart.
     """
     return await service.get_cart(redis, current_user.id)
-
 
 
 # UPDATE CART ITEM
@@ -97,7 +94,6 @@ async def update_cart_item(
     }
 
 
-
 # REMOVE SINGLE ITEM
 @router.delete(
     "/remove/{product_id}",
@@ -129,7 +125,6 @@ async def remove_cart_item(
     return None
 
 
-
 # CLEAR CART
 @router.delete("/clear", status_code=status.HTTP_200_OK)
 async def clear_cart(
@@ -152,17 +147,14 @@ async def clear_cart(
     return {"message": "Cart cleared"}
 
 
-
 @router.post("/checkout")
 async def checkout(
     redis: Redis = Depends(get_redis),
     service: CheckoutService = Depends(get_service(CheckoutService)),
-    current_user: User = Depends(get_current_customer)
+    current_user: User = Depends(get_current_customer),
 ):
-    return await service.checkout(
-        redis=redis,
-        user_id=current_user.id
-    )
+    return await service.checkout(redis=redis, user_id=current_user.id)
+
 
 @router.post("/resume/{order_id}")
 async def resume_checkout(

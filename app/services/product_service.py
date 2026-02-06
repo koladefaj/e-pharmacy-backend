@@ -1,9 +1,11 @@
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.crud.product import CRUDProduct
 from app.schemas.product import BatchCreate
-from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
 

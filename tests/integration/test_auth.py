@@ -1,5 +1,6 @@
-import pytest
 import uuid
+
+import pytest
 from fastapi import status
 
 
@@ -41,7 +42,6 @@ async def test_register_pharmacist_success(client, admin_token):
         "license_verified": True,
         "password": "strongpassword000",
     }
-
 
     response = await client.post(
         "/api/v1/pharmacist/register", json=payload, headers=admin_token
@@ -108,6 +108,7 @@ async def test_refresh(client):
     assert "access_token" in refresh_res.json()
     assert refresh_res.json()["token_type"] == "bearer"
 
+
 @pytest.mark.asyncio
 async def test_change_password_all_roles(client, customer_token, pharmacist_token):
     # Map tokens to their respective current passwords defined in your fixtures
@@ -117,15 +118,12 @@ async def test_change_password_all_roles(client, customer_token, pharmacist_toke
     ]
 
     for token_header, current_pwd in password_map:
-        payload = {
-            "old_password": current_pwd,
-            "new_password": "NewSecurePassword123!"
-        }
+        payload = {"old_password": current_pwd, "new_password": "NewSecurePassword123!"}
 
         response = await client.post(
-            "/api/v1/me/change-password", 
-            json=payload, 
-            headers=token_header  # Explicitly pass as headers
+            "/api/v1/me/change-password",
+            json=payload,
+            headers=token_header,  # Explicitly pass as headers
         )
 
         assert response.status_code == 204

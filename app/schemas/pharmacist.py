@@ -1,7 +1,7 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import datetime
 from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class PharmacistInDB(BaseModel):
@@ -17,13 +17,14 @@ class PharmacistInDB(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-
 class PharmacistRead(PharmacistInDB):
     """
     Read all pharmacists
 
     """
+
     model_config = ConfigDict(from_attributes=True)
+
 
 class PharmacistInDB(BaseModel):
     id: UUID

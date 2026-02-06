@@ -1,15 +1,17 @@
-from app.models.product import Product
-from app.schemas.product import ProductCreate, BatchCreate
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
-from app.models.inventory import InventoryBatch
-from datetime import datetime, timezone
-from starlette import status
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from fastapi import HTTPException
 import re
+from datetime import datetime, timezone
 from uuid import UUID
+
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from starlette import status
+
+from app.models.inventory import InventoryBatch
+from app.models.product import Product
+from app.schemas.product import BatchCreate, ProductCreate
 
 
 class CRUDProduct:
@@ -90,7 +92,7 @@ class CRUDProduct:
         self, *, product_id: UUID, obj_in: BatchCreate
     ) -> InventoryBatch:
         """Create a new batch record with business logic."""
-       
+
         existing = await self.session.execute(
             select(InventoryBatch).where(
                 InventoryBatch.batch_number == obj_in.batch_number
@@ -102,7 +104,6 @@ class CRUDProduct:
                 detail="This batch number is already assigned to a product.",
             )
 
-        
         product = await self.session.get(Product, product_id)
         if not product:
             raise HTTPException(
@@ -223,7 +224,6 @@ class CRUDProduct:
 
         await self.session.commit()
 
-
     async def get_available_products(
         self,
     ):
@@ -252,7 +252,7 @@ class CRUDProduct:
         skip: int = 0,
         limit: int = 20,
     ):
-        
+
         stmt = select(Product).options(selectinload(Product.batches))
 
         # Apply filters
@@ -270,4 +270,3 @@ class CRUDProduct:
         # Execute
         result = await self.session.execute(stmt)
         return result.scalars().all()
-

@@ -1,8 +1,10 @@
 # test_sendgrid_windows.py
 import ssl
 import warnings
+
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+
 from app.core.config import settings
 
 # --- Config ---

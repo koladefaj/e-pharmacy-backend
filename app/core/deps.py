@@ -1,22 +1,21 @@
 import logging
-import jwt
 import uuid
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.sessions import AsyncSessionLocal
-from sqlalchemy import select
-from redis.asyncio import Redis
-from app.core.config import settings
 from typing import Type, TypeVar
 
-from app.core.roles import UserRole
-from app.storage.base import StorageInterface
-from app.services.notification.notification_service import NotificationService
-from app.storage.r2_storage import R2Storage
-from app.db.sessions import get_async_session
-from app.models import User
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from redis.asyncio import Redis
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.roles import UserRole
+from app.db.sessions import AsyncSessionLocal, get_async_session
+from app.models import User
+from app.services.notification.notification_service import NotificationService
+from app.storage.base import StorageInterface
+from app.storage.r2_storage import R2Storage
 
 # Initialize logger for security events
 logger = logging.getLogger(__name__)
@@ -29,38 +28,38 @@ _r2_storage = R2Storage()
 T = TypeVar("T")
 
 
-
 # Create ONE Redis client (connection pool)
 redis_client = Redis.from_url(
     settings.redis_url,
     decode_responses=True,  # returns str instead of bytes
 )
 
+
 async def get_current_user(
     token: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
 ) -> User:
     """
     Dependency that authenticates requests using a JWT.
     """
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
+
     try:
         # Decode the token
         payload = jwt.decode(
             token.credentials,
             settings.secret_key,
             algorithms=[settings.jwt_algorithm],
-            options={"leeway": 30}
+            options={"leeway": 30},
         )
-        
+
         user_id_str: str = payload.get("sub")
 
         if not user_id_str:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
-                detail="Invalid authentication token"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token",
             )
         if payload.get("type") == "refresh":
             raise HTTPException(
@@ -71,12 +70,12 @@ async def get_current_user(
     except jwt.PyJWTError:
         logger.warning("JWT Decode Failed")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Token is invalid or has expired"
-    )
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is invalid or has expired",
+        )
 
     # DATABASE VERIFICATION
-    
+
     # Convert the string user_id into a proper UUID object.
     # SQLAlchemy's UUID
     try:
@@ -84,7 +83,7 @@ async def get_current_user(
     except (ValueError, AttributeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user identifier format"
+            detail="Invalid user identifier format",
         )
 
     # Query the database using the converted UUID object
@@ -94,31 +93,31 @@ async def get_current_user(
     if not user:
         logger.warning(f"Auth Failure: User {user_id_str} not found in database.")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="User not found"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
         )
-    
+
     if not user.is_active:
         raise HTTPException(status_code=403, detail="User account disabled")
-
 
     return user
 
 
 # ROLE BASED ACCESS CONTROL (SUB DEPENDENCIES OF GET CURRENT USER)
 
+
 def get_current_customer(current_user: User = Depends(get_current_user)) -> User:
     """Require Customer role"""
     if current_user.role != UserRole.CUSTOMER:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cant perform this action"
+            status_code=status.HTTP_403_FORBIDDEN, detail="You cant perform this action"
         )
     return current_user
+
 
 def get_any_authenticated_user(current_user: User = Depends(get_current_user)) -> User:
     """Allows any logged-in user to see products"""
     return current_user
+
 
 def get_current_pharmacist(current_user: User = Depends(get_current_user)) -> User:
     """Require Pharmacist Role"""
@@ -128,28 +127,32 @@ def get_current_pharmacist(current_user: User = Depends(get_current_user)) -> Us
             detail="Pharmacist access required",
         )
     return current_user
-    
+
+
 def get_current_active_pharmacist(
-    current_user: User = Depends(get_current_pharmacist)
+    current_user: User = Depends(get_current_pharmacist),
 ) -> User:
     """Require verified pharmacist or admin"""
     if current_user.role == UserRole.PHARMACIST and not current_user.license_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your account is pending verification"
+            detail="Your account is pending verification",
         )
     return current_user
+
 
 def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
     """Require admin role"""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
     return current_user
 
-def get_allowed_password_changers(current_user: User = Depends(get_current_user)) -> User:
+
+def get_allowed_password_changers(
+    current_user: User = Depends(get_current_user),
+) -> User:
     """Require Customer or User role"""
 
     allowed_roles = [UserRole.CUSTOMER, UserRole.PHARMACIST]
@@ -164,15 +167,17 @@ def get_allowed_password_changers(current_user: User = Depends(get_current_user)
 
 # SERVICE DEPENDENCIES
 
+
 async def get_redis() -> Redis:
     return redis_client
 
 
 def get_storage() -> StorageInterface:
-    
+
     if settings.storage == "r2":
         return _r2_storage
     return False
+
 
 def get_notification_service() -> NotificationService:
     return NotificationService()
@@ -181,11 +186,12 @@ def get_notification_service() -> NotificationService:
 def get_session_factory():
     return AsyncSessionLocal
 
+
 def get_service(service_cls: Type[T]):
     def _get(
         db: AsyncSession = Depends(get_async_session),
         notification_service: NotificationService = Depends(get_notification_service),
-        storage: R2Storage = Depends(get_storage)
+        storage: R2Storage = Depends(get_storage),
     ) -> T:
         try:
             return service_cls(db, notification_service, storage)
@@ -196,13 +202,3 @@ def get_service(service_cls: Type[T]):
                 return service_cls(db)
 
     return _get
-
-
-
-
-
-
-
-
-
-

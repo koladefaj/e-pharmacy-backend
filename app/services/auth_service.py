@@ -1,29 +1,37 @@
 import logging
-import jwt
 from uuid import UUID
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.crud.user import UserCRUD
-from app.core.config import settings
-from app.core.roles import UserRole
 
-from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
-from app.core.exceptions import AuthenticationFailed, PasswordVerificationError
-from app.services.notification.notification_service import NotificationService
+import jwt
 from fastapi import BackgroundTasks
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.exceptions import AuthenticationFailed, PasswordVerificationError
+from app.core.roles import UserRole
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    verify_password,
+)
+from app.crud.user import UserCRUD
+from app.services.notification.notification_service import NotificationService
 
 # Initialize logger for tracking auth events
 logger = logging.getLogger(__name__)
 
+
 class AuthService:
-    def __init__(self, session: AsyncSession, notification_service: NotificationService):
+    def __init__(
+        self, session: AsyncSession, notification_service: NotificationService
+    ):
         self.user_crud = UserCRUD(session=session)
         self.session = session
         self.notification_service = notification_service
-    
 
     async def register_customer(self, user_in: dict, background_tasks: BackgroundTasks):
-        email = user_in['email'].lower()
-        
+        email = user_in["email"].lower()
+
         # Logic: Check existence
         existing_user = await self.user_crud.get_by_email(email)
         if existing_user:
@@ -34,10 +42,10 @@ class AuthService:
         user_data = {
             **user_in,
             "email": email,
-            "hashed_password": hash_password(user_in['password']),
-            "role": UserRole.CUSTOMER
+            "hashed_password": hash_password(user_in["password"]),
+            "role": UserRole.CUSTOMER,
         }
-        user_data.pop('password', None)
+        user_data.pop("password", None)
 
         try:
             # CRUD: Save to database
@@ -49,14 +57,12 @@ class AuthService:
             access_token = create_access_token(new_customer)
             refresh_token = create_refresh_token(new_customer)
 
-
             background_tasks.add_task(
                 self.notification_service.notify,
-                   email=new_customer.email,
-                   phone=None,
-                   channels=["email"],
-                   message=f"Welcome {new_customer.full_name}, your account is ready."
-                
+                email=new_customer.email,
+                phone=None,
+                channels=["email"],
+                message=f"Welcome {new_customer.full_name}, your account is ready.",
             )
 
             logger.info(f"User registered successfully: {new_customer.id}")
@@ -67,14 +73,13 @@ class AuthService:
                 "role": new_customer.role,
                 "access_token": access_token,
                 "refresh_token": refresh_token,
-                "token_type": "bearer"
+                "token_type": "bearer",
             }
 
         except Exception:
             await self.session.rollback()
             logger.exception("Registration Crashed")
             raise
-
 
     async def login(self, email: str, password: str) -> dict:
         """
@@ -90,14 +95,16 @@ class AuthService:
         if not user or not verify_password(password, user.hashed_password):
             logger.warning(f"Login failed: Invalid credentials for {email}")
             raise PasswordVerificationError("Invalid email or password.")
-        
+
         if not user.is_active:
             logger.warning(f"Login blocked: Account disabled for {email}")
-            raise AuthenticationFailed("User account is inactive. Please contact support.")
+            raise AuthenticationFailed(
+                "User account is inactive. Please contact support."
+            )
 
         # Generate tokens
         logger.info(f"Login successful: User {user.id}")
-        
+
         return {
             "access_token": create_access_token(user),
             "refresh_token": create_refresh_token(user),
@@ -106,10 +113,9 @@ class AuthService:
                 "id": user.id,
                 "email": user.email,
                 "role": user.role.value,
-                "full_name": user.full_name
-            }
+                "full_name": user.full_name,
+            },
         }
-    
 
     async def refresh_access_token(self, refresh_token: str) -> dict:
         """
@@ -118,9 +124,7 @@ class AuthService:
         try:
             # Decode and Validate JWT
             payload = jwt.decode(
-                refresh_token,
-                settings.secret_key,
-                algorithms=[settings.jwt_algorithm]
+                refresh_token, settings.secret_key, algorithms=[settings.jwt_algorithm]
             )
 
             # Check Token Type
@@ -151,5 +155,3 @@ class AuthService:
         except (jwt.PyJWTError, ValueError) as e:
             logger.error(f"Refresh token validation failed: {str(e)}")
             raise AuthenticationFailed("Token expired or invalid")
-        
-    

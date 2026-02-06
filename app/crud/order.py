@@ -1,6 +1,8 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.order import Order, OrderStatus
 
 
@@ -24,11 +26,13 @@ class OrderCRUD:
             select(Order)
             .where(
                 Order.customer_id == customer_id,
-                Order.status.in_([
-                    OrderStatus.CHECKOUT_STARTED,
-                    OrderStatus.AWAITING_PRESCRIPTION,
-                    OrderStatus.READY_FOR_PAYMENT,
-                ]),
+                Order.status.in_(
+                    [
+                        OrderStatus.CHECKOUT_STARTED,
+                        OrderStatus.AWAITING_PRESCRIPTION,
+                        OrderStatus.READY_FOR_PAYMENT,
+                    ]
+                ),
             )
             .order_by(Order.created_at.desc())
             .limit(1)

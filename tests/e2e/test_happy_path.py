@@ -1,19 +1,17 @@
-import pytest
 import json
 import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from datetime import datetime, timezone, timedelta
-from app.models.order import Order
+
+import pytest
+
 from app.models.inventory import InventoryBatch
+from app.models.order import Order
+
 
 @pytest.mark.asyncio
 async def test_e2e_non_prescription_purchase_flow(
-    client, 
-    customer_token, 
-    test_customer, 
-    sample_product_otc, 
-    db_session, 
-    mock_redis
+    client, customer_token, test_customer, sample_product_otc, db_session, mock_redis
 ):
     user_id = test_customer.id
     product_id = str(sample_product_otc.id)
@@ -25,7 +23,7 @@ async def test_e2e_non_prescription_purchase_flow(
         initial_quantity=50,
         current_quantity=50,
         price=Decimal("100.00"),
-        expiry_date=datetime.now(timezone.utc) + timedelta(days=365)
+        expiry_date=datetime.now(timezone.utc) + timedelta(days=365),
     )
     db_session.add(batch)
     await db_session.commit()
@@ -43,10 +41,14 @@ async def test_e2e_non_prescription_purchase_flow(
 
     # PREPARE REDIS FOR PAYMENT SERVICE
     checkout_session_data = {"order_id": order_id, "amount": "100.00"}
-    await mock_redis.set(f"checkout:{user_id}", json.dumps(checkout_session_data), ex=900)
+    await mock_redis.set(
+        f"checkout:{user_id}", json.dumps(checkout_session_data), ex=900
+    )
 
     # CREATE PAYMENT INTENT
-    payment_resp = await client.post(f"/api/v1/payments/order/{order_id}", headers=customer_token)
+    payment_resp = await client.post(
+        f"/api/v1/payments/order/{order_id}", headers=customer_token
+    )
     assert payment_resp.status_code == 200
 
     # Fetch the order from DB
@@ -68,19 +70,15 @@ async def test_e2e_non_prescription_purchase_flow(
         "data": {
             "object": {
                 "id": pi_id,
-                "metadata": {
-                    "order_id": order_id,
-                    "customer_id": str(user_id)
-                }
+                "metadata": {"order_id": order_id, "customer_id": str(user_id)},
             }
-        }
+        },
     }
 
     webhook_resp = await client.post(
         "/api/v1/payments/webhooks/stripe",
         json=stripe_payload,
-        headers={"stripe-signature": "mock_sig"}
+        headers={"stripe-signature": "mock_sig"},
     )
-    
-    assert webhook_resp.status_code == 200
 
+    assert webhook_resp.status_code == 200

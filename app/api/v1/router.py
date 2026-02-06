@@ -1,6 +1,18 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, users, pharmacist, customer, cart, prescription, orders, payments
-from app.api.v1.endpoints.admin import product, pharmacist as admin_pharmacist, payments as admin_payment
+
+from app.api.v1.endpoints import (
+    auth,
+    cart,
+    customer,
+    orders,
+    payments,
+    pharmacist,
+    prescription,
+    users,
+)
+from app.api.v1.endpoints.admin import payments as admin_payment
+from app.api.v1.endpoints.admin import pharmacist as admin_pharmacist
+from app.api.v1.endpoints.admin import product
 
 router = APIRouter()
 

@@ -1,10 +1,11 @@
 import logging
+from datetime import datetime, timedelta, timezone
+
 import bcrypt
 import jwt
-from app.core.exceptions import PasswordVerificationError
-from datetime import datetime, timedelta, timezone
-from app.core.config import settings
 
+from app.core.config import settings
+from app.core.exceptions import PasswordVerificationError
 
 # Initialize logger for tracking token generation events
 logger = logging.getLogger(__name__)
@@ -12,10 +13,11 @@ logger = logging.getLogger(__name__)
 
 # JWT
 
+
 def create_access_token(user) -> str:
     """
     Generates a short-lived JWT Access Token.
-    
+
     Payload:
     - sub: The User UUID (Standard subject claim)
     - type: The type which is access token
@@ -31,17 +33,18 @@ def create_access_token(user) -> str:
 
     # Ensure user.id is a string as UUID objects aren't JSON serializable by default
     payload = {
-        "sub": str(user.id), 
+        "sub": str(user.id),
         "type": "access",
         "email": str(user.email),
         "role": user.role.value,
-        "iat": now, 
-        "exp": expire
+        "iat": now,
+        "exp": expire,
     }
-    
+
     token = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
     logger.debug(f"JWT: Access token created for user {user.id}")
     return token
+
 
 def create_refresh_token(user) -> str:
     """
@@ -56,12 +59,12 @@ def create_refresh_token(user) -> str:
 
     # We add a 'type' claim to prevent refresh tokens from being used as access tokens
     payload = {
-        "sub": str(user.id), 
+        "sub": str(user.id),
         "type": "refresh",
         "email": str(user.email),
-        "role": user.role.value, 
+        "role": user.role.value,
         "iat": now,
-        "exp": expire
+        "exp": expire,
     }
 
     token = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
@@ -69,9 +72,10 @@ def create_refresh_token(user) -> str:
     return token
 
 
-# HASHING BCRYPT 
+# HASHING BCRYPT
 
 MAX_BYTE_LENGTH = 72
+
 
 def hash_password(password: str) -> str:
     """Hashes a plain-text password using native Bcrypt."""
@@ -82,19 +86,15 @@ def hash_password(password: str) -> str:
         raise PasswordVerificationError("Password too long")
 
     # hashpw returns bytes, so we decode to utf-8 string for DB storage
-    return bcrypt.hashpw(
-        password.encode("utf-8"), 
-        bcrypt.gensalt()
-    ).decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifies a plain-text password against a stored hash."""
     try:
         return bcrypt.checkpw(
-            plain_password.encode("utf-8"), 
-            hashed_password.encode("utf-8")
+            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
         )
     except Exception:
         logger.error("Password verification failed due to internal error")
         return False
-

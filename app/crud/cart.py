@@ -1,9 +1,9 @@
 import json
+from typing import Dict, List
 from uuid import UUID
-from typing import List, Dict
 
 from redis.asyncio import Redis
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cart import CartItem
@@ -16,7 +16,6 @@ class CartCRUD:
     def _key(self, user_id: UUID) -> str:
         return f"cart:{user_id}"
 
-    
     # REDIS OPERATIONS
     async def get_redis_items(self, redis: Redis, user_id: UUID) -> List[Dict]:
 
@@ -24,7 +23,7 @@ class CartCRUD:
 
         if not data:
             return []
-        
+
         if isinstance(data, bytes):
             data = data.decode("utf-8")
 
@@ -33,24 +32,22 @@ class CartCRUD:
         except json.JSONDecodeError:
             await redis.delete(self._key(user_id))
             return []
-        
+
         if isinstance(payload, dict):
             items = payload.get("items", [])
 
         elif isinstance(payload, list):  # backward compatibility
             items = payload
-            
+
         else:
             await redis.delete(self._key(user_id))
             return []
-
 
         if not isinstance(items, list):
             await redis.delete(self._key(user_id))
             return []
 
         return items
-
 
     async def set_redis_items(
         self,
@@ -63,13 +60,12 @@ class CartCRUD:
             "v": 1,
             "items": items,
         }
-        
+
         await redis.set(self._key(user_id), json.dumps(payload), ex=ttl)
 
     async def delete_redis_cart(self, redis: Redis, user_id: UUID):
         await redis.delete(self._key(user_id))
 
-    
     # DATABASE OPERATIONS
     async def get_db_items(
         self,
@@ -84,7 +80,4 @@ class CartCRUD:
         self,
         user_id: UUID,
     ):
-        await self.session.execute(
-            delete(CartItem).where(CartItem.user_id == user_id)
-        )
-        
+        await self.session.execute(delete(CartItem).where(CartItem.user_id == user_id))

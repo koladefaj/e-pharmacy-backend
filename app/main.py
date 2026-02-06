@@ -1,33 +1,29 @@
-import uuid
-import os
 import logging
-import app.core.stripe
+import os
+import uuid
 
-from fastapi import FastAPI, Request, Depends
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from app.db.sessions import get_async_session
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
-
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
+import app.core.stripe
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
-from app.core.logging import setup_logging, request_id_var
+from app.core.exceptions import (
+    AuthenticationFailed,
+    NotAuthorized,
+    PasswordVerificationError,
+)
 from app.core.limiter import limiter
-from fastapi.responses import JSONResponse
-from app.core.exceptions import AuthenticationFailed, NotAuthorized, PasswordVerificationError
+from app.core.logging import request_id_var, setup_logging
 from app.core.ssl import configure_ssl
-
-
-
-
-
-
-
+from app.db.sessions import get_async_session
 
 # LOGGING
 setup_logging()
@@ -35,13 +31,14 @@ logger = logging.getLogger(__name__)
 
 configure_ssl()
 
-# APP INITIALIZATION 
+# APP INITIALIZATION
 allowed_hosts = os.getenv("ALLOWED_HOSTS", "*").split(",")
 
 app = FastAPI(
     title="E Pharmacy API",
     version="1.0.0",
 )
+
 
 @app.exception_handler(AuthenticationFailed)
 @app.exception_handler(PasswordVerificationError)
@@ -51,6 +48,7 @@ async def auth_exception_handler(request: Request, exc: Exception):
         status_code=401,
         content={"detail": str(exc)},
     )
+
 
 @app.exception_handler(NotAuthorized)
 async def not_authorized_handler(request: Request, exc: NotAuthorized):
@@ -68,11 +66,10 @@ app.include_router(v1_router, prefix="/api/v1")
 async def universal_exception_handler(request: Request, exc: Exception):
     # Log the real error for the developer
     logger.error(f"Unhandled error: {str(exc)}", exc_info=True)
-    
+
     # Send a polite message to the user
     return JSONResponse(
-        status_code=500,
-        content={"detail": "An unexpected error occurred."}
+        status_code=500, content={"detail": "An unexpected error occurred."}
     )
 
 
@@ -113,7 +110,6 @@ async def security_and_tracing_middleware(request: Request, call_next):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
 
-
         if settings.environment == "production":
             response.headers["Strict-Transport-Security"] = (
                 "max-age=63072000; includeSubDomains"
@@ -124,19 +120,19 @@ async def security_and_tracing_middleware(request: Request, call_next):
     except Exception as e:
         # Ensure we still reset the context var even if the app crashes
         logger.error(f"Middleware caught crash: {e}", exc_info=True)
-        return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
-    
+        return JSONResponse(
+            status_code=500, content={"detail": "Internal Server Error"}
+        )
+
     finally:
         request_id_var.reset(token)
 
 
 # HEALTH CHECKS
 @app.get("/health")
-async def health_check(
-    db: AsyncSession = Depends(get_async_session)
-):
+async def health_check(db: AsyncSession = Depends(get_async_session)):
     health_status = {"status": "healthy", "dependencies": {}}
-    
+
     # 1. Check PostgreSQL
     try:
         await db.execute(text("SELECT 1"))
@@ -155,4 +151,3 @@ async def health_check(
         health_status["dependencies"]["redis"] = str(e)
 
     return health_status
-

@@ -1,6 +1,8 @@
 import logging
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.config import settings
-from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker, create_async_engine)
 
 # Initialize the logger for async database events
 logger = logging.getLogger(__name__)
@@ -16,8 +18,8 @@ if not db_url:
 if db_url.startswith("postgresql+asyncpg://"):
     async_db = db_url
 else:
-    #create async version for the application
-    async_db = db_url.replace('postgresql://', 'postgresql+asyncpg://')
+    # create async version for the application
+    async_db = db_url.replace("postgresql://", "postgresql+asyncpg://")
 
 
 # ASYNC ENGINE CONFIG (FastAPI)
@@ -33,8 +35,8 @@ async_engine = create_async_engine(
 
 AsyncSessionLocal = async_sessionmaker(
     async_engine,
-    class_= AsyncSession,
-    expire_on_commit= False,
+    class_=AsyncSession,
+    expire_on_commit=False,
 )
 
 
@@ -53,4 +55,3 @@ async def get_async_session() -> AsyncSession:
             raise
         finally:
             await session.close()
-

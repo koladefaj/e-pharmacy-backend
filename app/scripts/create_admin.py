@@ -1,10 +1,13 @@
 import asyncio
 from datetime import date
-from app.db.sessions import get_async_session
-from app.models.user import User
+
+from sqlalchemy import select
+
 from app.core.roles import UserRole
 from app.core.security import hash_password
-from sqlalchemy import select
+from app.db.sessions import get_async_session
+from app.models.user import User
+
 
 async def create_super_admin():
     # Use the session generator

@@ -1,6 +1,8 @@
 from typing import List
+
 from app.services.notification.email import EmailNotification
 from app.services.notification.whatsapp import WhatsAppNotification
+
 
 class NotificationService:
     def __init__(self):
@@ -17,18 +19,13 @@ class NotificationService:
         message: str,
         channels: List[str],
         attachment: bytes | None = None,
-        filename: str = "invoice.pdf"
+        filename: str = "invoice.pdf",
     ):
         for channel in channels:
             if channel == "email" and email:
                 await self.channels["email"].send(
-                    email, 
-                    message,
-                    attachment=attachment,
-                    filename=filename
+                    email, message, attachment=attachment, filename=filename
                 )
 
             if channel == "whatsapp" and phone:
                 await self.channels["whatsapp"].send(phone, message)
-
-

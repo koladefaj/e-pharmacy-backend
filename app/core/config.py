@@ -1,20 +1,20 @@
-import os
 import logging
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator, SecretStr
+import os
 
+from pydantic import SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
+
 class Settings(BaseSettings):
 
-    
-    # APP BASICS 
-    app_env: str 
+    # APP BASICS
+    app_env: str
     app_name: str
     environment: str
 
-    # DATABASE & REDIS 
+    # DATABASE & REDIS
     database_url: str
     db_port: int
     redis_url: str
@@ -25,15 +25,16 @@ class Settings(BaseSettings):
     def adjust_urls_for_docker(cls, v: str) -> str:
         if os.environ.get("RAILWAY_ENVIRONMENT_ID"):
             return v
-            
+
         # If in Local Docker, swap localhost for service names
         if os.path.exists("/.dockerenv"):
             # Replace localhost/127.0.0.1 with service names defined in docker-compose.yml
-            v = v.replace("localhost", "e_pharmacy_db").replace("127.0.0.1", "e_pharmacy_db")
+            v = v.replace("localhost", "e_pharmacy_db").replace(
+                "127.0.0.1", "e_pharmacy_db"
+            )
             if "redis" in v or "6379" in v:
-                return v.replace("e_pharmacy_db", "redis") 
+                return v.replace("e_pharmacy_db", "redis")
         return v
-    
 
     # SECURITY
     secret_key: str
@@ -58,14 +59,14 @@ class Settings(BaseSettings):
     sendgrid_api_key: SecretStr
     email_from: str
 
-
     model_config = SettingsConfigDict(
-        # This order is important: System Environment Variables (Railway) always 
+        # This order is important: System Environment Variables (Railway) always
         # override the .env file (Local).
         env_file=(".env"),
         env_file_encoding="utf-8",
         extra="allow",
-        case_sensitive=False
+        case_sensitive=False,
     )
+
 
 settings = Settings()

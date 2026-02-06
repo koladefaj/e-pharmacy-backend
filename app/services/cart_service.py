@@ -1,11 +1,13 @@
-from uuid import UUID
 from datetime import datetime, timezone
+from uuid import UUID
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
-from app.models.cart import CartItem
+
 from app.crud.cart import CartCRUD
+from app.models.cart import CartItem
 from app.models.inventory import InventoryBatch
 
 

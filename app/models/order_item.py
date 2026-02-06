@@ -1,9 +1,9 @@
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Numeric, text, CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import CheckConstraint, ForeignKey, Numeric, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -15,7 +15,7 @@ class OrderItem(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
-        server_default=text("gen_random_uuid()")
+        server_default=text("gen_random_uuid()"),
     )
 
     # Relationships
@@ -30,7 +30,7 @@ class OrderItem(Base):
         UUID(as_uuid=True),
         ForeignKey("products.id", ondelete="RESTRICT"),
         nullable=False,
-        index=True
+        index=True,
     )
 
     # Inventory (linked later during fulfillment)
@@ -42,8 +42,7 @@ class OrderItem(Base):
 
     # Purchase snapshot
     quantity: Mapped[int] = mapped_column(
-        CheckConstraint('quantity > 0'),
-        nullable=False
+        CheckConstraint("quantity > 0"), nullable=False
     )
 
     price_at_purchase: Mapped[Decimal] = mapped_column(

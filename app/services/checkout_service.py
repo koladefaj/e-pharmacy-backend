@@ -1,18 +1,20 @@
 import json
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from uuid import UUID
-from decimal import Decimal
-from fastapi import HTTPException
 from datetime import datetime, timezone
-from app.models.order import Order
-from app.db.enums import OrderStatus
+from decimal import Decimal
+from uuid import UUID
+
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
-from app.models.product import Product
-from app.models.order_item import OrderItem
-from app.models.inventory import InventoryBatch
-from app.services.cart_service import CartService
+
 from app.crud.order import OrderCRUD
+from app.db.enums import OrderStatus
+from app.models.inventory import InventoryBatch
+from app.models.order import Order
+from app.models.order_item import OrderItem
+from app.models.product import Product
+from app.services.cart_service import CartService
 
 
 class CheckoutService:
@@ -23,14 +25,13 @@ class CheckoutService:
         self.cart_service = CartService(session)
         self.session = session
 
-
     async def checkout(
         self,
         *,
         user_id: UUID,
         redis,
     ) -> dict:
-        
+
         # Load cart
         existing_order = await self.order_crud.get_active_order(user_id)
 
@@ -44,14 +45,13 @@ class CheckoutService:
 
         if not cart["items"]:
             raise HTTPException(
-                status_code= status.HTTP_400_BAD_REQUEST,
-                detail="Cart is empty")
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Cart is empty"
+            )
 
         total = Decimal("0.00")
         requires_prescription = False
         now = datetime.now(timezone.utc)
 
-        
         # Create order shell
         order = Order(
             customer_id=user_id,
@@ -66,11 +66,13 @@ class CheckoutService:
             product = await self.session.get(Product, UUID(item["product_id"]))
 
             if not product:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Product {item.product_id} not found")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Product {item.product_id} not found",
+                )
 
             quantity = item["quantity"]
 
-            
             # Find first available unexpired batch for this product
             batch = await self.session.scalar(
                 select(InventoryBatch)
@@ -78,7 +80,7 @@ class CheckoutService:
                     InventoryBatch.product_id == product.id,
                     InventoryBatch.is_blocked.is_(False),
                     InventoryBatch.current_quantity >= quantity,
-                    InventoryBatch.expiry_date > now
+                    InventoryBatch.expiry_date > now,
                 )
                 .order_by(InventoryBatch.expiry_date.asc())
             )
@@ -90,10 +92,8 @@ class CheckoutService:
                     detail=f"No sellable stock for {product.name}",
                 )
 
-
             if product.prescription_required:
                 requires_prescription = True
-
 
             unit_price = batch.price
             quantity = item["quantity"]
@@ -123,28 +123,24 @@ class CheckoutService:
         # Create Redis checkout session
         await redis.set(
             f"checkout:{user_id}",
-            json.dumps({
-                "order_id": str(order.id),
-                "amount": str(total),
-                "requires_prescription": requires_prescription,
-            }),
+            json.dumps(
+                {
+                    "order_id": str(order.id),
+                    "amount": str(total),
+                    "requires_prescription": requires_prescription,
+                }
+            ),
             ex=self.CHECKOUT_TTL,
         )
 
         await self.cart_service.clear_all(redis, user_id)
-
-
 
         # Response
         return {
             "order_id": order.id,
             "status": order.status,
             "expires_in": self.CHECKOUT_TTL,
-            "next_step": (
-                "UPLOAD_PRESCRIPTION"
-                if requires_prescription
-                else "PAY"
-            ),
+            "next_step": ("UPLOAD_PRESCRIPTION" if requires_prescription else "PAY"),
         }
 
     async def resume_checkout(
@@ -154,37 +150,37 @@ class CheckoutService:
         order_id: UUID,
         redis,
     ) -> dict:
-        
+
         # Fetch order
         order = await self.order_crud.get_by_id(order_id)
 
-
         if not order:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="Order not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
 
         if order.customer_id != user_id:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, 
-                detail= "Not authorized to resume this order"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to resume this order",
             )
 
         if order.status != OrderStatus.READY_FOR_PAYMENT:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Order cannot be resumed (status={order.status})"
+                detail=f"Order cannot be resumed (status={order.status})",
             )
 
         # Create fresh Redis checkout session
         await redis.set(
             f"checkout:{user_id}",
-            json.dumps({
-                "order_id": str(order.id),
-                "amount": str(order.total_amount),
-                "requires_prescription": order.requires_prescription,
-            }),
+            json.dumps(
+                {
+                    "order_id": str(order.id),
+                    "amount": str(order.total_amount),
+                    "requires_prescription": order.requires_prescription,
+                }
+            ),
             ex=self.CHECKOUT_TTL,
         )
 
@@ -195,6 +191,3 @@ class CheckoutService:
             "expires_in": self.CHECKOUT_TTL,
             "next_step": "PAY",
         }
-
-
-

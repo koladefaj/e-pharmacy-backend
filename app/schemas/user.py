@@ -1,11 +1,20 @@
-import uuid
 import re
-from typing import Annotated
+import uuid
 from datetime import date
-from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, AfterValidator
+from typing import Annotated
+
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+)
 
 # REGEX FOR INTERNATIONAL PHONE NUMBERS: +[COUNTRYCODE][NUMBER]
 PHONE_REGEX = r"^\+?[1-9]\d{1,14}$"
+
 
 # CREATE A REUSABLE, VALIDATED TYPE
 def validate_phone_number(v: str) -> str:
@@ -13,7 +22,9 @@ def validate_phone_number(v: str) -> str:
         raise ValueError("Invalid phone number format")
     return v
 
+
 PhoneNumber = Annotated[str, AfterValidator(validate_phone_number)]
+
 
 class BaseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -22,7 +33,10 @@ class BaseSchema(BaseModel):
 class UserBase(BaseSchema):
     full_name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    phone_number: PhoneNumber = Field(..., json_schema_extra={"example": "+234800000000"},)
+    phone_number: PhoneNumber = Field(
+        ...,
+        json_schema_extra={"example": "+234800000000"},
+    )
     address: str
     date_of_birth: date
 
@@ -37,26 +51,27 @@ class UserBase(BaseSchema):
 # LOGIN REQUEST
 class LoginRequest(BaseModel):
     """Schema for user login credentials."""
+
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., min_length=8, max_length=100)
+
 
 # CUSTOMER REGISTRATION
 class RegisterCustomerRequest(UserBase):
     password: str = Field(..., min_length=8, max_length=100)
 
 
-
-# PHARMACIST CREATION 
+# PHARMACIST CREATION
 class CreatePharmacistRequest(UserBase):
     license_number: str = Field(..., min_length=3)
     hired_at: date | None = None
     license_verified: bool | None = None
     password: str = Field(..., min_length=8)
 
-    
+
 class DeletePharmacistRequest(BaseSchema):
     email: EmailStr
-    
+
 
 # CHANGE PASSWORD REQUEST
 class ChangePasswordRequest(BaseModel):
@@ -76,4 +91,3 @@ class UserRead(BaseSchema):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
-

@@ -1,6 +1,7 @@
 import logging
-from fastapi import HTTPException, status, UploadFile
-import magic  
+
+import magic
+from fastapi import HTTPException, UploadFile, status
 
 # Initialize logger for security events
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ ALLOWED_MIME_TYPES = {
 
 # Max file size: 10MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
 
 async def validate_file_content(file: UploadFile):
     """
@@ -38,7 +40,7 @@ async def validate_file_content(file: UploadFile):
         logger.warning(f"Security: Blocked oversized file ({file_size} bytes)")
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File too large."
+            detail="File too large.",
         )
 
     # CONTENT VALIDATION
@@ -51,23 +53,22 @@ async def validate_file_content(file: UploadFile):
     except Exception as e:
         logger.error(f"Magic bytes read error: {e}")
         raise HTTPException(status_code=400, detail="Could not read file headers.")
-    
 
     if file_mime_type not in ALLOWED_MIME_TYPES:
-        
+
         logger.warning(
             "File validation failed",
             extra={
                 "mime_type": file_mime_type,
                 "filename": file.filename,
                 "reason": "unsupported_mime",
-                "client_ip": getattr(file, "client", "unknown") 
-            }
+                "client_ip": getattr(file, "client", "unknown"),
+            },
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="Unsupported file type"
+            detail="Unsupported file type",
         )
 
     # EXTENSION CONSISTENCY
@@ -76,7 +77,7 @@ async def validate_file_content(file: UploadFile):
         logger.error(f"Extension mismatch: {file_ext} vs {file_mime_type}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File extension does not match the actual file content."
+            detail="File extension does not match the actual file content.",
         )
 
     # Final cursor reset for downstream processing

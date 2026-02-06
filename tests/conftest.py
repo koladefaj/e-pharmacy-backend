@@ -1,5 +1,5 @@
-import os
 import json
+import os
 import tempfile
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -8,14 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.core.deps import get_redis, get_storage
+from app.core.deps import get_redis, get_service, get_session_factory, get_storage
 from app.core.roles import UserRole
 from app.core.security import hash_password
 from app.db.base import Base
@@ -27,9 +23,6 @@ from app.models.product import Product
 from app.models.user import User
 from app.services.notification.notification_service import NotificationService
 from app.services.prescription_service import PrescriptionService
-from app.core.deps import get_service, get_session_factory
-
-
 
 # DISABLE RATE LIMITING GLOBALLY
 app.state.limiter_enabled = False
@@ -52,13 +45,11 @@ TestingAsyncSessionLocal = async_sessionmaker(
 )
 
 
-
 # PYTEST CORE FIXTURES
 @pytest.fixture(scope="session")
 def test_app():
     app.debug = True
     return app
-
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -70,6 +61,7 @@ def disable_rate_limiter():
     patcher.start()
     yield
     patcher.stop()
+
 
 @pytest.fixture(scope="function", autouse=True)
 async def setup_db():
@@ -94,11 +86,11 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     async with TestingAsyncSessionLocal() as session:
         yield session
 
+
 @pytest.fixture(scope="session", autouse=True)
 async def close_engine():
     yield
     await engine.dispose()
-
 
 
 @pytest.fixture(autouse=True)
@@ -107,8 +99,6 @@ def block_real_r2_storage(monkeypatch, mock_storage_service):
         "app.storage.r2_storage.R2Storage",
         lambda *args, **kwargs: mock_storage_service,
     )
-
-
 
 
 # MOCKS
@@ -133,7 +123,6 @@ def mock_redis():
     return redis
 
 
-
 @pytest.fixture(autouse=True)
 def mock_stripe(monkeypatch):
     """Mock PaymentIntent.create to avoid real Stripe calls."""
@@ -148,10 +137,10 @@ def mock_stripe(monkeypatch):
 
     # Patch the correct import path of stripe.PaymentIntent.create
     monkeypatch.setattr(
-        "app.services.payment_service.stripe.PaymentIntent.create",
-        fake_create
+        "app.services.payment_service.stripe.PaymentIntent.create", fake_create
     )
     yield
+
 
 @pytest.fixture(autouse=True)
 def mock_stripe_webhook(monkeypatch):
@@ -184,11 +173,9 @@ def mock_stripe_webhook(monkeypatch):
         return FakeStripeEvent(payload_dict)
 
     monkeypatch.setattr(
-        "app.services.payment_service.stripe.Webhook.construct_event",
-        fake_construct
+        "app.services.payment_service.stripe.Webhook.construct_event", fake_construct
     )
     yield
-
 
 
 @pytest.fixture
@@ -199,7 +186,6 @@ def mock_notification_service(monkeypatch):
         lambda: mock,
     )
     return mock
-
 
 
 # DATA FIXTURES
@@ -365,7 +351,6 @@ async def sample_order(db_session, test_customer):
     return order
 
 
-
 # MOCK STORAGE
 class MockR2Storage:
     def __init__(self):
@@ -397,7 +382,6 @@ def mock_storage_service():
     storage.clear()
 
 
-
 # DEPENDENCY OVERRIDES
 @pytest.fixture(autouse=True)
 def override_dependencies(test_app, db_session, mock_storage_service, mock_redis):
@@ -405,15 +389,15 @@ def override_dependencies(test_app, db_session, mock_storage_service, mock_redis
     async def _get_test_session():
         yield db_session
 
-
     def _get_test_db_factory():
         class AsyncSessionContextManager:
             async def __aenter__(self):
-                return db_session 
+                return db_session
+
             async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass 
+                pass
+
         return AsyncSessionContextManager
-    
 
     def _get_prescription_service(session: AsyncSession = None):
         return PrescriptionService(
@@ -427,13 +411,14 @@ def override_dependencies(test_app, db_session, mock_storage_service, mock_redis
     test_app.dependency_overrides[get_async_session] = _get_test_session
     test_app.dependency_overrides[get_storage] = lambda: mock_storage_service
     test_app.dependency_overrides[R2Storage] = lambda: mock_storage_service
-    test_app.dependency_overrides[get_service(PrescriptionService)] = _get_prescription_service
+    test_app.dependency_overrides[get_service(PrescriptionService)] = (
+        _get_prescription_service
+    )
     test_app.dependency_overrides[get_redis] = lambda: mock_redis
 
     yield
 
     test_app.dependency_overrides.clear()
-
 
 
 # HTTP CLIENT

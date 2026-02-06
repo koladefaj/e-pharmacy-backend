@@ -1,22 +1,29 @@
 import logging
-from uuid import UUID, uuid4
 from datetime import datetime, timezone
-from fastapi import UploadFile, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import BackgroundTasks
-from app.models.order import Order
-from app.models.user import User
+from uuid import UUID, uuid4
+
+from fastapi import BackgroundTasks, HTTPException, UploadFile
 from sqlalchemy import select
-from app.services.validation_service import validate_file_content
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.enums import OrderStatus, PrescriptionStatus
+from app.models.order import Order
 from app.models.prescription import Prescription
-from app.db.enums import PrescriptionStatus, OrderStatus
+from app.models.user import User
 from app.services.notification.notification_service import NotificationService
+from app.services.validation_service import validate_file_content
 from app.storage.r2_storage import R2Storage
 
 logger = logging.getLogger(__name__)
 
+
 class PrescriptionService:
-    def __init__(self, session: AsyncSession, notification_service: NotificationService, storage_service: R2Storage):
+    def __init__(
+        self,
+        session: AsyncSession,
+        notification_service: NotificationService,
+        storage_service: R2Storage,
+    ):
         self.storage = storage_service
         self.session = session
         self.notification_service = notification_service
@@ -66,8 +73,6 @@ class PrescriptionService:
         )
         return result.scalars().all()
 
-
-
     async def get_prescription_file_url(
         self,
         *,
@@ -78,10 +83,7 @@ class PrescriptionService:
         if not prescription:
             raise HTTPException(404, "Prescription not found")
 
-        return self.storage.generate_presigned_url(
-            prescription.file_path
-        )
-
+        return self.storage.generate_presigned_url(prescription.file_path)
 
     async def get_status_for_customer(
         self,
@@ -104,15 +106,12 @@ class PrescriptionService:
 
         return prescription
 
-
-
-
     async def approve(
         self,
         *,
         prescription_id: UUID,
         pharmacist_id: UUID,
-        background_tasks: BackgroundTasks
+        background_tasks: BackgroundTasks,
     ) -> Prescription:
         prescription = await self.session.get(Prescription, prescription_id)
 
@@ -122,13 +121,11 @@ class PrescriptionService:
         if prescription.status != PrescriptionStatus.PENDING:
             raise HTTPException(400, "Prescription already reviewed")
 
-        
         prescription.status = PrescriptionStatus.APPROVED
         prescription.reviewed_by = pharmacist_id
         prescription.reviewed_at = datetime.now(timezone.utc)
         prescription.rejection_reason = None
 
-        
         order = await self.session.get(Order, prescription.order_id)
         if not order:
             raise HTTPException(500, "Order linked to prescription not found")
@@ -145,15 +142,14 @@ class PrescriptionService:
             email=user.email,
             phone=None,
             channels=["email"],
-            message=f"Your Prescription for order: #{order.id} has been approved"
-                
+            message=f"Your Prescription for order: #{order.id} has been approved",
         )
 
-    
-        logger.info(f"Prescription {prescription_id} {prescription.status.value} by Pharmacist {pharmacist_id}")
+        logger.info(
+            f"Prescription {prescription_id} {prescription.status.value} by Pharmacist {pharmacist_id}"
+        )
 
         return prescription
-
 
     async def reject(
         self,
@@ -161,7 +157,7 @@ class PrescriptionService:
         prescription_id: UUID,
         pharmacist_id: UUID,
         reason: str,
-        background_tasks: BackgroundTasks
+        background_tasks: BackgroundTasks,
     ) -> Prescription:
         prescription = await self.session.get(Prescription, prescription_id)
 
@@ -175,7 +171,6 @@ class PrescriptionService:
         prescription.reviewed_by = pharmacist_id
         prescription.reviewed_at = datetime.now(timezone.utc)
         prescription.rejection_reason = reason
-
 
         order = await self.session.get(Order, prescription.order_id)
         if not order:
@@ -193,12 +188,10 @@ class PrescriptionService:
             email=user.email,
             phone=None,
             channels=["email"],
-            message=f"Your Prescription for order: #{order.id} was rejected reason: {prescription.rejection_reason}"
-                
+            message=f"Your Prescription for order: #{order.id} was rejected reason: {prescription.rejection_reason}",
         )
 
-        logger.info(f"Prescription {prescription_id} {prescription.status.value} by Pharmacist {pharmacist_id}")
+        logger.info(
+            f"Prescription {prescription_id} {prescription.status.value} by Pharmacist {pharmacist_id}"
+        )
         return prescription
-
-
-

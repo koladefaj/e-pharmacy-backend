@@ -1,8 +1,10 @@
 import uuid
 from decimal import Decimal
-from sqlalchemy import ForeignKey, Numeric, text, CheckConstraint, UniqueConstraint
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+
+from sqlalchemy import CheckConstraint, ForeignKey, Numeric, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
 
 
@@ -13,7 +15,7 @@ class CartItem(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
-        server_default=text("gen_random_uuid()")
+        server_default=text("gen_random_uuid()"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -30,8 +32,7 @@ class CartItem(Base):
     )
 
     quantity: Mapped[int] = mapped_column(
-        CheckConstraint('quantity > 0'),
-        nullable=False
+        CheckConstraint("quantity > 0"), nullable=False
     )
 
     price_at_add: Mapped[Decimal] = mapped_column(
@@ -45,5 +46,5 @@ class CartItem(Base):
 
     # Ensure a user only has one row per product
     __table_args__ = (
-        UniqueConstraint('user_id', 'product_id', name='uq_user_product_cart'),
+        UniqueConstraint("user_id", "product_id", name="uq_user_product_cart"),
     )

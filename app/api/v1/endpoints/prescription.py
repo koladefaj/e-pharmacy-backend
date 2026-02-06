@@ -1,13 +1,13 @@
-from fastapi import APIRouter, UploadFile, File, Depends, BackgroundTasks
-from uuid import UUID
 from typing import List
+from uuid import UUID
 
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
 
-from app.core.deps import get_current_user, get_current_pharmacist, get_service
+from app.core.deps import get_current_pharmacist, get_current_user, get_service
 from app.schemas.prescription import (
+    PendingPrescriptionResponse,
     PrescriptionRejectRequest,
     PrescriptionStatusResponse,
-    PendingPrescriptionResponse,
 )
 from app.services.prescription_service import PrescriptionService
 
@@ -40,7 +40,6 @@ async def upload_prescription(
     return prescription
 
 
-
 # APPROVE PRESCRIPTION (PHARMACIST)
 @router.post(
     "/approve",
@@ -55,15 +54,14 @@ async def approve_prescription(
     """
     Pharmacist approves a prescription.
     """
-    
+
     prescription = await service.approve(
         prescription_id=prescription_id,
         pharmacist_id=pharmacist.id,
-        background_tasks=background_tasks
+        background_tasks=background_tasks,
     )
 
     return prescription
-
 
 
 # REJECT PRESCRIPTION (PHARMACIST)
@@ -84,10 +82,11 @@ async def reject_prescription(
         prescription_id=body.prescription_id,
         pharmacist_id=pharmacist.id,
         reason=body.reason,
-        background_tasks=background_tasks
+        background_tasks=background_tasks,
     )
 
     return prescription
+
 
 @router.get("/pending", response_model=List[PendingPrescriptionResponse])
 async def list_pending_prescriptions(
@@ -99,6 +98,7 @@ async def list_pending_prescriptions(
     """
     return await service.list_pending()
 
+
 @router.get("/file/{prescription_id}")
 async def get_prescription_file(
     prescription_id: UUID,
@@ -108,9 +108,7 @@ async def get_prescription_file(
     """
     Returns a temporary URL to view/download the prescription.
     """
-    url = await service.get_prescription_file_url(
-        prescription_id=prescription_id
-    )
+    url = await service.get_prescription_file_url(prescription_id=prescription_id)
     return {"url": url}
 
 
@@ -131,5 +129,3 @@ async def get_prescription_status(
         order_id=order_id,
         user_id=current_user.id,
     )
-
-

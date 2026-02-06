@@ -1,13 +1,13 @@
 import uuid
-
-from sqlalchemy import Numeric, ForeignKey, DateTime, String, Boolean, func, Enum, text
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
+
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Numeric, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
 from app.db.enums import OrderStatus
-
 
 
 class Order(Base):
@@ -17,7 +17,7 @@ class Order(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
-        server_default=text("gen_random_uuid()")
+        server_default=text("gen_random_uuid()"),
     )
 
     customer_id: Mapped[uuid.UUID] = mapped_column(
@@ -34,12 +34,12 @@ class Order(Base):
 
     status: Mapped[OrderStatus] = mapped_column(
         Enum(
-            OrderStatus, 
-             name="order_status_enum", 
-             values_callable=lambda enum: [e.value for e in enum]
+            OrderStatus,
+            name="order_status_enum",
+            values_callable=lambda enum: [e.value for e in enum],
         ),
         nullable=False,
-        index=True
+        index=True,
     )
 
     requires_prescription: Mapped[bool] = mapped_column(
@@ -59,14 +59,11 @@ class Order(Base):
         nullable=False,
     )
 
-    
     payment_intent_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    
-    paid_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), 
-        nullable=True
-    )
 
+    paid_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Relationships
     customer = relationship("User", back_populates="orders")

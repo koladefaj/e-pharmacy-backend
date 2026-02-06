@@ -58,6 +58,10 @@ pytest-mock = ">=3.11.1,<4.0.0"
 [tool.poetry]
 package-mode = false
 
+[tool.isort]
+profile = "black"
+line_length = 88
+
 [[tool.poetry.source]]
 name = "safety"
 url = "https://pkgs.safetycli.com/repository/none-19107/project/e-pharmacy-backend/pypi/simple/"

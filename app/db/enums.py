@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class UserRole(str, Enum):
     ADMIN = "admin"
     CUSTOMER = "customer"
@@ -13,16 +14,18 @@ class OrderStatus(str, Enum):
     PRESCRIPTION_REJECTED = "prescription_rejected"
     READY_FOR_PAYMENT = "ready_for_payment"
     PAID = "paid"
-    REFUNDED="refunded"
-    REFUND_PENDING="refund_pending"
+    REFUNDED = "refunded"
+    REFUND_PENDING = "refund_pending"
     CANCELLED = "cancelled"
     FULFILLED = "fulfilled"
+
 
 class CategoryEnum(str, Enum):
     SUPPLEMENT = "supplement"
     OTC = "otc"
     MEDICAL_DEVICE = "medical_device"
     PRESCRIPTION = "prescription"
+
 
 class PrescriptionStatus(str, Enum):
     PENDING = "pending"

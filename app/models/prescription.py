@@ -1,12 +1,12 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Enum, DateTime, ForeignKey, func, Text, text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.enums import PrescriptionStatus
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.enums import PrescriptionStatus
 
 
 class Prescription(Base):
@@ -49,9 +49,8 @@ class Prescription(Base):
         Enum(PrescriptionStatus, values_callable=lambda enum: [e.value for e in enum]),
         default=PrescriptionStatus.PENDING,
         nullable=False,
-        index=True
+        index=True,
     )
-
 
     # Clinical Review
     reviewed_by: Mapped[UUID | None] = mapped_column(
@@ -75,7 +74,6 @@ class Prescription(Base):
         server_default=func.now(),
         nullable=False,
     )
-
 
     # Relationship
     order = relationship("Order", back_populates="prescription")

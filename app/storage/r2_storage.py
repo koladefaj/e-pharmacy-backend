@@ -1,12 +1,15 @@
-import os
 import logging
+import os
 import tempfile
 from io import BytesIO
+
 import boto3
-from app.storage.base import StorageInterface
+
 from app.core.config import settings
+from app.storage.base import StorageInterface
 
 logger = logging.getLogger(__name__)
+
 
 class R2Storage(StorageInterface):
     def __init__(self):
@@ -30,8 +33,9 @@ class R2Storage(StorageInterface):
             ExpiresIn=expires_in,
         )
 
-
-    async def upload(self, file_id: str, file_name: str, file_bytes: bytes, content_type: str):
+    async def upload(
+        self, file_id: str, file_name: str, file_bytes: bytes, content_type: str
+    ):
         try:
             self.client.put_object(
                 Bucket=self.bucket,

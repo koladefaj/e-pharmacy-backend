@@ -1,24 +1,23 @@
-import stripe
 import logging
-from uuid import UUID
+from datetime import datetime, timezone
 from decimal import Decimal
-from datetime import datetime
+from uuid import UUID
+
+import stripe
 from fastapi import BackgroundTasks
-from app.models.order_item import OrderItem
-from datetime import timezone
-
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from app.models.user import User
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.services.cart_service import CartService
-from app.services.notification.notification_service import NotificationService
-from app.services.invoice_service import InvoiceService
-from app.core.exceptions import InsufficientStockError
+from sqlalchemy.orm import selectinload
 
-from app.models.order import Order
-from app.db.enums import OrderStatus
+from app.core.exceptions import InsufficientStockError
 from app.crud.product import CRUDProduct
+from app.db.enums import OrderStatus
+from app.models.order import Order
+from app.models.order_item import OrderItem
+from app.models.user import User
+from app.services.cart_service import CartService
+from app.services.invoice_service import InvoiceService
+from app.services.notification.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +45,9 @@ class PaymentService:
 
         if order.status != OrderStatus.READY_FOR_PAYMENT:
             raise ValueError("Order is not ready for payment")
-        
+
         if not await redis.exists(f"checkout:{order.customer_id}"):
             raise ValueError("Checkout session expired")
-
 
         # Reuse existing intent
         if order.payment_intent_id:
@@ -88,9 +86,16 @@ class PaymentService:
 
     # STRIPE WEBHOOK ENTRYPOINT
     async def handle_webhook(
-        self, *, event: stripe.Event, redis, db_factory, background_tasks: BackgroundTasks
+        self,
+        *,
+        event: stripe.Event,
+        redis,
+        db_factory,
+        background_tasks: BackgroundTasks,
     ) -> dict:
-        event_id = event.get("id") if isinstance(event, dict) else getattr(event, "id", None)
+        event_id = (
+            event.get("id") if isinstance(event, dict) else getattr(event, "id", None)
+        )
         event_key = f"stripe:event:{event_id}"
 
         # Idempotency
@@ -99,7 +104,11 @@ class PaymentService:
 
         await redis.set(event_key, "1", ex=STRIPE_EVENT_TTL)
 
-        event_type = event.get("type") if isinstance(event, dict) else getattr(event, "type", None)
+        event_type = (
+            event.get("type")
+            if isinstance(event, dict)
+            else getattr(event, "type", None)
+        )
 
         if not event_type:
             return {"status": "invalid_event"}
