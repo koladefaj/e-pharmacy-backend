@@ -5,7 +5,6 @@ from decimal import Decimal
 from datetime import datetime, timezone, timedelta
 from app.models.order import Order
 from app.models.inventory import InventoryBatch
-from app.db.enums import OrderStatus
 
 @pytest.mark.asyncio
 async def test_e2e_non_prescription_purchase_flow(

@@ -1,5 +1,4 @@
 import os
-import stripe
 import json
 import tempfile
 import uuid
