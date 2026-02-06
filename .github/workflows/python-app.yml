@@ -49,11 +49,15 @@ jobs:
         run: poetry run bandit -r . -ll
       - name: Install Safety
         run: pip install safety
-      - name: Check dependencies
-        run: poetry export -f requirements.txt --without-hashes | safety check --stdin
+      - name: Export dependencies
+        run: poetry export -f requirements.txt --without-hashes --output requirements.txt
+      - name: Security scan with Safety
+        run: safety scan -r requirements.txt
       - name: Run Pytest
         env:
-          ENV: testing
+          APP_NAME: E pharmacy backend
+          APP_ENV: local
+          ENVIRONMENT: testing
           DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/test_db
           DATABASE_SYNC_URL: postgresql://user:password@localhost:5432/test_db
           DB_PORT: 5432

@@ -19,10 +19,8 @@ class Settings(BaseSettings):
     db_port: int
     redis_url: str
     redis_port: int
-    celery_broker_url: str
-    celery_result_backend: str
 
-    @field_validator("database_url", "redis_url", "celery_broker_url", "celery_result_backend", mode="after")
+    @field_validator("database_url", "redis_url", mode="after")
     @classmethod
     def adjust_urls_for_docker(cls, v: str) -> str:
         if os.environ.get("RAILWAY_ENVIRONMENT_ID"):
@@ -31,9 +29,9 @@ class Settings(BaseSettings):
         # If in Local Docker, swap localhost for service names
         if os.path.exists("/.dockerenv"):
             # Replace localhost/127.0.0.1 with service names defined in docker-compose.yml
-            v = v.replace("localhost", "health_com_db").replace("127.0.0.1", "health_com_db")
+            v = v.replace("localhost", "e_pharmacy_db").replace("127.0.0.1", "e_pharmacy_db")
             if "redis" in v or "6379" in v:
-                return v.replace("health_com_db", "redis") 
+                return v.replace("e_pharmacy_db", "redis") 
         return v
     
 
@@ -64,7 +62,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         # This order is important: System Environment Variables (Railway) always 
         # override the .env file (Local).
-        env_file=(".env", ".env.local"),
+        env_file=(".env"),
         env_file_encoding="utf-8",
         extra="allow",
         case_sensitive=False
