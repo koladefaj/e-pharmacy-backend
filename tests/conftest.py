@@ -1,6 +1,7 @@
 import os
 import json
 import tempfile
+import pytest_asyncio
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import AsyncGenerator
@@ -27,7 +28,7 @@ from app.models.product import Product
 from app.models.user import User
 from app.services.notification.notification_service import NotificationService
 from app.services.prescription_service import PrescriptionService
-from app.core.deps import get_service
+from app.core.deps import get_service, get_session_factory
 
 
 
@@ -50,6 +51,7 @@ TestingAsyncSessionLocal = async_sessionmaker(
     autoflush=False,
     autocommit=False,
 )
+
 
 
 # PYTEST CORE FIXTURES
@@ -404,27 +406,28 @@ def override_dependencies(test_app, db_session, mock_storage_service, mock_redis
     async def _get_test_session():
         yield db_session
 
-    class AsyncSessionContextManager:
-            def __init__(self, session):
-                self.session = session
-            async def __aenter__(self):
-                return self.session 
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                await self.session.flush()
 
-    def mock_session_maker():
-        return AsyncSessionContextManager(db_session)
+    def _get_test_db_factory():
+        class AsyncSessionContextManager:
+            async def __aenter__(self):
+                return db_session 
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass 
+        return AsyncSessionContextManager
+    
 
     def _get_prescription_service(session: AsyncSession = None):
         return PrescriptionService(
-            session=session,
+            session=session or db_session,
             storage=mock_storage_service,
         )
 
-    from app.core.deps import get_session_factory
-    test_app.dependency_overrides[get_session_factory] = lambda: mock_session_maker
+    from app.storage.r2_storage import R2Storage
+
+    test_app.dependency_overrides[get_session_factory] = _get_test_db_factory
     test_app.dependency_overrides[get_async_session] = _get_test_session
     test_app.dependency_overrides[get_storage] = lambda: mock_storage_service
+    test_app.dependency_overrides[R2Storage] = lambda: mock_storage_service
     test_app.dependency_overrides[get_service(PrescriptionService)] = _get_prescription_service
     test_app.dependency_overrides[get_redis] = lambda: mock_redis
 

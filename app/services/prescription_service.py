@@ -6,18 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import BackgroundTasks
 from app.models.order import Order
 from app.models.user import User
-from app.core.deps import get_storage
 from sqlalchemy import select
 from app.services.validation_service import validate_file_content
 from app.models.prescription import Prescription
 from app.db.enums import PrescriptionStatus, OrderStatus
 from app.services.notification.notification_service import NotificationService
+from app.storage.r2_storage import R2Storage
 
 logger = logging.getLogger(__name__)
 
 class PrescriptionService:
-    def __init__(self, session: AsyncSession, notification_service: NotificationService):
-        self.storage = get_storage()
+    def __init__(self, session: AsyncSession, notification_service: NotificationService, storage_service: R2Storage):
+        self.storage = storage_service
         self.session = session
         self.notification_service = notification_service
 

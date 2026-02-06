@@ -15,7 +15,7 @@ async def test_register_customer_success(client):
         "password": "strongpassword123",
     }
 
-    response = await client.post("api/v1/auth/register", json=payload)
+    response = await client.post("/api/v1/auth/register", json=payload)
     if response.status_code == 422:
         print(f"\nVALIDATION ERROR: {response.json()}")
 
@@ -44,7 +44,7 @@ async def test_register_pharmacist_success(client, admin_token):
 
 
     response = await client.post(
-        "api/v1/pharmacist/register", json=payload, headers=admin_token
+        "/api/v1/pharmacist/register", json=payload, headers=admin_token
     )
 
     if response.status_code == 401:
@@ -70,11 +70,11 @@ async def test_login(client):
         "password": "strongpassword123",
     }
 
-    await client.post("api/v1/auth/register", json=user_data)
+    await client.post("/api/v1/auth/register", json=user_data)
 
     # Try login
     login_data = {"email": user_data["email"], "password": user_data["password"]}
-    response = await client.post("api/v1/auth/login", json=login_data)
+    response = await client.post("/api/v1/auth/login", json=login_data)
 
     assert response.status_code == 200
     assert "access_token" in response.json()
@@ -94,14 +94,14 @@ async def test_refresh(client):
         "password": "strongpassword123",
     }
 
-    signup_res = await client.post("api/v1/auth/register", json=user_data)
+    signup_res = await client.post("/api/v1/auth/register", json=user_data)
     assert signup_res.status_code == 201
 
     refresh_token = signup_res.json()["refresh_token"]
 
     # Request access token
     refresh_res = await client.post(
-        "api/v1/auth/refresh", json={"refresh_token": refresh_token}
+        "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
     )
 
     assert refresh_res.status_code == 200

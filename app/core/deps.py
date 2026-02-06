@@ -185,11 +185,15 @@ def get_service(service_cls: Type[T]):
     def _get(
         db: AsyncSession = Depends(get_async_session),
         notification_service: NotificationService = Depends(get_notification_service),
+        storage: R2Storage = Depends(get_storage)
     ) -> T:
         try:
-            return service_cls(db, notification_service)
+            return service_cls(db, notification_service, storage)
         except TypeError:
-            return service_cls(db)
+            try:
+                return service_cls(db, notification_service)
+            except TypeError:
+                return service_cls(db)
 
     return _get
 
