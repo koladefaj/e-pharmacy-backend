@@ -51,7 +51,7 @@ jobs:
         run: |
           pip install safety
           poetry run pip freeze > requirements.txt
-          safety scan -r requirements.txt
+          safety check --full-report --key ${{ secrets.SAFETY_API_KEY }} --file=requirements.txt
 
       - name: Run Pytest
         env:

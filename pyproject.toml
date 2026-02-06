@@ -46,6 +46,11 @@ dependencies = [
 package-mode = false
 
 
+[[tool.poetry.source]]
+name = "safety"
+url = "https://pkgs.safetycli.com/repository/none-19107/project/e-pharmacy-backend/pypi/simple/"
+priority = "primary"
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
