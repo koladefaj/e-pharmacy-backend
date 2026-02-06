@@ -1,4 +1,5 @@
 import os
+import stripe
 import json
 import tempfile
 import uuid
@@ -404,15 +405,16 @@ def override_dependencies(test_app, db_session, mock_storage_service, mock_redis
     async def _get_test_session():
         yield db_session
 
-    # Define the factory that PaymentService uses
-    def _get_test_db_factory():
-        class AsyncSessionContextManager:
+    class AsyncSessionContextManager:
+            def __init__(self, session):
+                self.session = session
             async def __aenter__(self):
-                return db_session 
+                return self.session 
             async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass 
-        return AsyncSessionContextManager
-    
+                await self.session.flush()
+
+    def mock_session_maker():
+        return AsyncSessionContextManager(db_session)
 
     def _get_prescription_service(session: AsyncSession = None):
         return PrescriptionService(
@@ -421,7 +423,7 @@ def override_dependencies(test_app, db_session, mock_storage_service, mock_redis
         )
 
     from app.core.deps import get_session_factory
-    test_app.dependency_overrides[get_session_factory] = _get_test_db_factory
+    test_app.dependency_overrides[get_session_factory] = lambda: mock_session_maker
     test_app.dependency_overrides[get_async_session] = _get_test_session
     test_app.dependency_overrides[get_storage] = lambda: mock_storage_service
     test_app.dependency_overrides[get_service(PrescriptionService)] = _get_prescription_service

@@ -53,7 +53,10 @@ jobs:
         run: |
           pip install Safety
           safety scan 
-
+      - name: Install libmagic (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1
       - name: Run Pytest
         env:
           APP_NAME: E pharmacy backend
