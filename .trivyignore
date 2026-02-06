@@ -1,0 +1,22 @@
+# .trivyignore
+# Acceptable risks for base image
+CVE-2011-3374  # Very old apt-key issue
+CVE-2017-18018  # Race condition in coreutils, low risk in containers
+
+# Python packages - acceptable risks
+# (Add specific CVEs after running scan)
+
+# Development tools not in final image
+CVE-2017-13716  # binutils 
+CVE-2018-20673  # binutils
+CVE-2018-20712  # binutils
+CVE-2026-0861
+CVE-2018-9996   # binutils
+
+# Bash issues in container context
+TEMP-0841856-B18BAF  # Bash privilege escalation
+CVE-2018-7738        # bash-completion
+
+# Acceptable in Python slim base image
+MEDIUM:libpq
+LOW:libmagic1

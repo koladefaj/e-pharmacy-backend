@@ -1,10 +1,10 @@
 import logging
+import jwt
 import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.sessions import AsyncSessionLocal
-from jose import jwt, JWTError
 from sqlalchemy import select
 from redis.asyncio import Redis
 from app.core.config import settings
@@ -68,7 +68,7 @@ async def get_current_user(
                 detail="Invalid token type",
             )
 
-    except JWTError:
+    except jwt.PyJWTError:
         logger.warning("JWT Decode Failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 

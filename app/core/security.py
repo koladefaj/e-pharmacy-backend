@@ -1,8 +1,8 @@
 import logging
 import bcrypt
+import jwt
 from app.core.exceptions import PasswordVerificationError
 from datetime import datetime, timedelta, timezone
-from jose import jwt
 from app.core.config import settings
 
 

@@ -1,9 +1,9 @@
 import logging
+import jwt
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.user import UserCRUD
 from app.core.config import settings
-from jose import JWTError, jwt
 from app.core.roles import UserRole
 
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
@@ -148,7 +148,7 @@ class AuthService:
                 "token_type": "bearer",
             }
 
-        except (JWTError, ValueError) as e:
+        except (jwt.PyJWTError, ValueError) as e:
             logger.error(f"Refresh token validation failed: {str(e)}")
             raise AuthenticationFailed("Token expired or invalid")
         

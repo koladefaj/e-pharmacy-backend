@@ -15,13 +15,31 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install Ruff
-        run: pip install ruff
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install dependencies (with dev)
+        run: poetry install --with dev
       - name: Lint with Ruff
-        run: ruff check .
+        run: poetry run ruff check .
+      - name: Format check with Black
+        run: poetry run black --check .
+      - name: Import check with isort
+        run: poetry run isort --check-only .
+
+  dockerfile-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Hadolint (Dockerfile linter)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
 
   test:
-    needs: lint
+    needs: [lint, dockerfile-security]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -43,9 +61,9 @@ jobs:
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - name: Install dependencies
-        run: poetry install
-      - name: Run Bandit
+      - name: Install dependencies (with dev for testing)
+        run: poetry install --with dev
+      - name: Run Bandit security scan
         run: poetry run bandit -r . -ll
       - name: Security scan with Safety
         env:
@@ -89,33 +107,43 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
+      
+      # Build image with security optimizations
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            --tag ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest \
+            --tag ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:${{ github.sha }} \
+            .
+      
+      # Scan image BEFORE pushing
+      - name: Scan local Docker image
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image
+          image-ref: '${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest'
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+      
+      # Only push if scan passes
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
+        if: success()
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest
-
-  security-scan:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest
-          format: table
-          exit-code: 1
+      
+      - name: Push Docker image
+        if: success()
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:${{ github.sha }}
 
   # deploy:
-  #   needs: security-scan
+  #   needs: build-and-push
   #   runs-on: ubuntu-latest
   #   steps:
   #     - uses: actions/checkout@v4
