@@ -25,8 +25,8 @@ dependencies = [
     "pydantic-settings>=2.12.0,<3.0.0",
     "redis>=7.1.0,<8.0.0",
     "boto3>=1.42.27,<2.0.0",
-    "python-magic (>=0.4.27); sys_platform != 'win32'",
-    "python-magic-bin (>=0.4.14); sys_platform == 'win32'",
+    "python-magic>=0.4.27; sys_platform != 'win32'",
+    "python-magic-bin>=0.4.14; sys_platform == 'win32'",
     "asgiref>=3.11.0,<4.0.0",
     "google>=3.0.0,<4.0.0",
     "google-genai>=1.57.0,<2.0.0",
@@ -48,7 +48,7 @@ isort = ">=7.0.0,<8.0.0"
 bandit = ">=1.9.3,<2.0.0"
 ruff = ">=0.1.0,<0.2.0"  # Add ruff for linting
 aiosqlite = ">=0.22.1,<0.23.0"
-python-magic-bin = ">=0.4.14,<0.5.0"  # Windows only
+python-magic-bin = { version = ">=0.4.14,<0.5.0", markers = "sys_platform == 'win32'" }
 
 [tool.poetry.group.test.dependencies]
 # Optional: separate test dependencies if needed
