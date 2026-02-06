@@ -47,11 +47,14 @@ jobs:
         run: poetry install
       - name: Run Bandit
         run: poetry run bandit -r . -ll
+
       - name: Security scan with Safety
+        env:
+          SAFETY_API_KEY: ${{ secrets.E-pharmacy CI/CD Pipeline }}
         run: |
-          pip install safety
+          pip install --upgrade safety
           poetry run pip freeze > requirements.txt
-          safety scan --full-report --key ${{ secrets.SAFETY_API_KEY }} --file=requirements.txt
+          safety scan --full-report --file=requirements.txt
 
       - name: Run Pytest
         env:
@@ -110,14 +113,14 @@ jobs:
           format: table
           exit-code: 1
 
-  # deploy:
-  #   needs: security-scan
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install Railway CLI
-  #       run: npm install -g @railway/cli
-  #     - name: Deploy to Railway
-  #       run: railway up --detach --service 2dc14cfe-eae3-4516-bd22-187603657da4
-  #       env:
-  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+# deploy:
+#   needs: security-scan
+#   runs-on: ubuntu-latest
+#   steps:
+#     - uses: actions/checkout@v4
+#     - name: Install Railway CLI
+#       run: npm install -g @railway/cli
+#     - name: Deploy to Railway
+#       run: railway up --detach --service 2dc14cfe-eae3-4516-bd22-187603657da4
+#       env:
+#         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
