@@ -94,4 +94,3 @@ async def test_e2e_prescription_rejection_and_order_cancellation(
     # VERIFY INVENTORY (Stock should NOT have been deducted)
     await db_session.refresh(batch)
     assert batch.current_quantity == 50
-

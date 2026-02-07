@@ -2,7 +2,7 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -73,19 +73,20 @@ async def test_e2e_non_prescription_purchase_flow(
     }
 
     # MOCK THE STOCK DEDUCTION
-    with patch('app.services.payment_service.CRUDProduct') as MockCRUDProduct:
+    with patch("app.services.payment_service.CRUDProduct") as MockCRUDProduct:
         # Create a mock CRUDProduct instance
         mock_crud_instance = AsyncMock()
-        
+
         # Create a call tracker to verify the method was called correctly
         deduct_calls = []
+
         async def mock_deduct(product_id, quantity):
             deduct_calls.append((product_id, quantity))
             return None
-        
+
         mock_crud_instance.deduct_stock_fefo = AsyncMock(side_effect=mock_deduct)
         MockCRUDProduct.return_value = mock_crud_instance
-        
+
         webhook_resp = await client.post(
             "/api/v1/payments/webhooks/stripe",
             json=stripe_payload,
@@ -93,7 +94,7 @@ async def test_e2e_non_prescription_purchase_flow(
         )
 
     assert webhook_resp.status_code == 200
-    
+
     response_data = webhook_resp.json()
     print(f"Webhook response: {response_data}")
     assert response_data["status"] == "ok"
@@ -101,10 +102,12 @@ async def test_e2e_non_prescription_purchase_flow(
     # VERIFY the mock was called correctly
     print(f"Deduct stock was called {len(deduct_calls)} times")
     assert len(deduct_calls) > 0, "deduct_stock_fefo should have been called"
-    
+
     # Check it was called with the right product ID
     for product_id_called, quantity_called in deduct_calls:
-        print(f"  Called with product_id: {product_id_called}, quantity: {quantity_called}")
+        print(
+            f"  Called with product_id: {product_id_called}, quantity: {quantity_called}"
+        )
         assert quantity_called == 1
 
     # VERIFY FINAL STATE

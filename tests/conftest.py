@@ -32,13 +32,12 @@ app.state.limiter_enabled = False
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
-
-
 # PYTEST CORE FIXTURES
 @pytest.fixture(scope="session")
 def test_app():
     app.debug = True
     return app
+
 
 @pytest.fixture(scope="session")
 def engine():
@@ -49,6 +48,7 @@ def engine():
         poolclass=StaticPool,
     )
 
+
 @pytest.fixture(scope="session")
 def TestingAsyncSessionLocal(engine):
     return async_sessionmaker(
@@ -57,6 +57,7 @@ def TestingAsyncSessionLocal(engine):
         autoflush=False,
         autocommit=False,
     )
+
 
 @pytest.fixture(scope="session", autouse=True)
 def disable_rate_limiter():
@@ -393,6 +394,7 @@ def mock_storage_service():
 def override_dependencies(test_app, db_session, mock_storage_service, mock_redis):
 
     testdb_session = db_session
+
     async def _get_test_session():
         yield testdb_session
 
