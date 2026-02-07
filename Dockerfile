@@ -9,12 +9,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_CREATE=false
 
-# DL3008: Added specific versions (or just use -y for speed in builder)
-# Note: In a builder, pinning is less critical, but Hadolint wants it.
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential=12.9 \
-    libpq-dev=15.10-0+deb12u1 \
-    curl=7.88.1-10+deb12u8 \
+    build-essential \
+    libpq-dev \
+    curl= \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -sSL https://install.python-poetry.org | python3 -
@@ -25,7 +24,7 @@ COPY pyproject.toml poetry.lock* ./
 
 RUN poetry install --only main --no-root
 
-# --- Stage 2: Final Runtime ---
+# Stage 2: Final Runtime
 FROM python:3.12-slim-bookworm
 
 WORKDIR /app

@@ -31,18 +31,7 @@ app.state.limiter_enabled = False
 # DATABASE SETUP (SQLite in-memory, SAFE)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-engine = create_async_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
 
-TestingAsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    expire_on_commit=False,
-    autoflush=False,
-    autocommit=False,
-)
 
 
 # PYTEST CORE FIXTURES
@@ -51,6 +40,23 @@ def test_app():
     app.debug = True
     return app
 
+@pytest.fixture(scope="session")
+def engine():
+    """Make the engine available as a fixture"""
+    return create_async_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+@pytest.fixture(scope="session")
+def TestingAsyncSessionLocal(engine):
+    return async_sessionmaker(
+        bind=engine,
+        expire_on_commit=False,
+        autoflush=False,
+        autocommit=False,
+    )
 
 @pytest.fixture(scope="session", autouse=True)
 def disable_rate_limiter():
@@ -64,7 +70,7 @@ def disable_rate_limiter():
 
 
 @pytest.fixture(scope="function", autouse=True)
-async def setup_db():
+async def setup_db(engine):
     """Create and drop tables per test (NO engine.dispose)."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -76,7 +82,7 @@ async def setup_db():
 
 
 @pytest.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session(TestingAsyncSessionLocal) -> AsyncGenerator[AsyncSession, None]:
     """
     IMPORTANT:
     - NO rollback
@@ -88,7 +94,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def close_engine():
+async def close_engine(engine):
     yield
     await engine.dispose()
 
@@ -386,22 +392,26 @@ def mock_storage_service():
 @pytest.fixture(autouse=True)
 def override_dependencies(test_app, db_session, mock_storage_service, mock_redis):
 
+    testdb_session = db_session
     async def _get_test_session():
-        yield db_session
+        yield testdb_session
 
     def _get_test_db_factory():
+
         class AsyncSessionContextManager:
             async def __aenter__(self):
-                return db_session
+                testdb_session.expire_all()
+                return testdb_session
 
             async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass
+                if exc_type is not None:
+                    await testdb_session.rollback()
 
         return AsyncSessionContextManager
 
     def _get_prescription_service(session: AsyncSession = None):
         return PrescriptionService(
-            session=session or db_session,
+            session=session or testdb_session,
             storage=mock_storage_service,
         )
 
