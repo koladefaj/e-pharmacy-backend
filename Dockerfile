@@ -13,7 +13,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
-    curl= \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -sSL https://install.python-poetry.org | python3 -
@@ -36,10 +36,11 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN pip install --no-cache-dir --upgrade pip==26.0
 
 # DL3008: Pin versions for production runtime stability
+# Stage 2: Final Runtime
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-    libpq5=15.10-0+deb12u1 \
-    libmagic1=1:5.44-3 \
+    libpq5 \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
