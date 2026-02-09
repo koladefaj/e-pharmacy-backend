@@ -27,10 +27,7 @@ from app.db.sessions import get_async_session
 
 # LOGGING
 setup_logging()
-import logging
-
-logger = logging.getLogger("app.services.payment_service")
-
+logger = logging.getLogger(__name__)
 
 configure_ssl()
 
@@ -72,7 +69,7 @@ async def universal_exception_handler(request: Request, exc: Exception):
 
     # Send a polite message to the user
     return JSONResponse(
-        status_code=500, content={"detail": "An unexpected error occured."}
+        status_code=500, content={"detail": "An unexpected error occurred."}
     )
 
 
