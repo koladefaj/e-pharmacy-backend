@@ -142,18 +142,18 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/e-pharmacy-backend:${{ github.sha }}
 
-deploy:
-  needs: build-and-push
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install Railway CLI
-      run: npm install -g @railway/cli
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-    - name: Deploy to Railway
-      env:
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      run: |
-        railway up --detach --service 514ae8d5-5278-49f6-9467-a277dfe09771
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up --detach --service 514ae8d5-5278-49f6-9467-a277dfe09771
