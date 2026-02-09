@@ -6,6 +6,16 @@ Featuring prescription verification workflows, role-based access control (User /
 
 [![GitHub](https://img.shields.io/badge/GitHub-koladefaj%2Fe--pharmacy--backend-blue?logo=github)](https://github.com/koladefaj/e-pharmacy-backend)
 
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://e-pharmacy-backend-production-d44b.up.railway.app/docs)
+
+
+![Role-Based Access](assets/screenshots/rbac.png)
+*Role-based endpoints for Users, Pharmacists, and Admins*
+
+> ⚠️ Live demo runs in Stripe sandbox mode. No real payments processed.
+
+
+
 ## ✨ Key Features
 
 - **Regulated Prescription Checkout**  
@@ -99,9 +109,12 @@ Order status updated **only** via `payment_intent.succeeded` webhook — **never
 ```bash
 git clone https://github.com/koladefaj/e-pharmacy-backend.git
 cd e-pharmacy-backend
+```
 
 # Copy and configure environment variables
+```bash
 cp .env.example .env
+```
 # ────────────────────────────────────────
 # Edit .env file:
 #   DATABASE_URL=...
@@ -112,10 +125,14 @@ cp .env.example .env
 # ────────────────────────────────────────
 
 # Start the stack
+```bash
 docker compose up --build
+```
 
 # Open Swagger UI
+```bash
 → http://localhost:8000/docs
+```
 
 ## 🧪 What This Project Demonstrates
 
@@ -145,6 +162,40 @@ A production-ready FastAPI backend that handles the unique challenges of pharmac
 - Strict **input validation** & sanitization everywhere
 
 Built with a strong focus on **security**, **reliability**, and **regulatory compliance**
+
+### Stripe Payment — Idempotent & Webhook-Driven
+
+![Stripe Payment Started](assets/screenshots/stripe-payment-started.png)
+![Stripe Payment Success](assets/screenshots/stripe-payment-success.png)
+
+- Successful Stripe PaymentIntent in sandbox mode  
+- Webhook (`payment_intent.succeeded`) is the single source of truth  
+- Prevents duplicate charges via deterministic idempotency keys  
+- Supports NGN payments with automatic FX settlement
+
+### Payment History & Refund Handling
+
+![Stripe Transactions](assets/screenshots/stripe-transactions-list.png)
+
+- Multiple successful transactions across test runs  
+- Refunds handled correctly via Stripe dashboard  
+- Confirms safe retries without duplicate charges
+
+### Production Logs — End-to-End Order Lifecycle
+
+![Railway Logs](assets/screenshots/railway-logs.png)
+
+Real production logs showing a full regulated checkout flow:
+
+1. Prescription uploaded to object storage (R2)
+2. Pharmacist approval event
+3. Stripe PaymentIntent creation
+4. Webhook confirmation (`payment_intent.succeeded`)
+5. Inventory deduction (batch-aware)
+6. Cart cleared after successful payment
+
+This validates correct ordering, atomicity, and domain compliance.
+
 
 © Kolade Fajimi • Backend Engineering • Secure & Reliable Systems  
 2024–2025
