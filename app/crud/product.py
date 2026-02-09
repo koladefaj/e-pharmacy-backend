@@ -16,6 +16,7 @@ from app.schemas.product import BatchCreate, ProductCreate
 
 logger = logging.getLogger(__name__)
 
+
 class CRUDProduct:
 
     def __init__(self, session: AsyncSession):
@@ -167,7 +168,6 @@ class CRUDProduct:
         result = await self.session.execute(stmt)
         batches = result.scalars().all()
 
-
         total_available = sum(b.current_quantity for b in batches)
         if total_available < quantity:
             raise HTTPException(
@@ -185,7 +185,6 @@ class CRUDProduct:
                 # This batch can cover the rest of the order
                 batch.current_quantity -= remaining_to_deduct
                 remaining_to_deduct = 0
-                
 
             else:
                 # Empty this batch and move to the next
