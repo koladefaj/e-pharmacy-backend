@@ -111,25 +111,24 @@ git clone https://github.com/koladefaj/e-pharmacy-backend.git
 cd e-pharmacy-backend
 ```
 
-# Copy and configure environment variables
+## Copy and configure environment variables
 ```bash
 cp .env.example .env
 ```
-# ────────────────────────────────────────
-# Edit .env file:
-#   DATABASE_URL=...
-#   REDIS_URL=...
-#   STRIPE_SECRET_KEY=...
-#   STRIPE_WEBHOOK_SECRET=...
-#   JWT_SECRET_KEY=...
-# ────────────────────────────────────────
+## Edit .env file:
+   DATABASE_URL=...
+   REDIS_URL=...
+   STRIPE_SECRET_KEY=...
+   STRIPE_WEBHOOK_SECRET=...
+   JWT_SECRET_KEY=...
 
-# Start the stack
+
+## Start the stack
 ```bash
 docker compose up --build
 ```
 
-# Open Swagger UI
+## Open Swagger UI
 ```bash
 → http://localhost:8000/docs
 ```
@@ -166,6 +165,7 @@ Built with a strong focus on **security**, **reliability**, and **regulatory com
 ### Stripe Payment — Idempotent & Webhook-Driven
 
 ![Stripe Payment Started](assets/screenshots/stripe-payment-started.png)
+
 ![Stripe Payment Success](assets/screenshots/stripe-payment-success.png)
 
 - Successful Stripe PaymentIntent in sandbox mode  
