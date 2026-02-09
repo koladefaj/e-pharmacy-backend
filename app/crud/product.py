@@ -1,4 +1,5 @@
 import re
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from app.models.inventory import InventoryBatch
 from app.models.product import Product
 from app.schemas.product import BatchCreate, ProductCreate
 
+logger = logging.getLogger(__name__)
 
 class CRUDProduct:
 
@@ -155,7 +157,7 @@ class CRUDProduct:
             select(InventoryBatch)
             .where(
                 InventoryBatch.product_id == product_id,
-                not InventoryBatch.is_blocked,
+                InventoryBatch.is_blocked.is_(False),
                 InventoryBatch.expiry_date > datetime.now(timezone.utc),
                 InventoryBatch.current_quantity > 0,
             )
@@ -164,6 +166,7 @@ class CRUDProduct:
 
         result = await self.session.execute(stmt)
         batches = result.scalars().all()
+
 
         total_available = sum(b.current_quantity for b in batches)
         if total_available < quantity:
@@ -182,12 +185,15 @@ class CRUDProduct:
                 # This batch can cover the rest of the order
                 batch.current_quantity -= remaining_to_deduct
                 remaining_to_deduct = 0
+                
+
             else:
                 # Empty this batch and move to the next
                 remaining_to_deduct -= batch.current_quantity
                 batch.current_quantity = 0
 
         await self.session.commit()
+        logger.info(f"Deducted {quantity} items for product {product_id}")
         return True
 
     async def restock_product(
@@ -205,7 +211,7 @@ class CRUDProduct:
             select(InventoryBatch)
             .where(
                 InventoryBatch.product_id == product_id,
-                not InventoryBatch.is_blocked,
+                InventoryBatch.is_blocked.is_(False),
             )
             .order_by(InventoryBatch.expiry_date.desc())
         )
@@ -234,7 +240,7 @@ class CRUDProduct:
                 Product.is_active,
                 InventoryBatch.current_quantity > 0,
                 InventoryBatch.expiry_date > datetime.now(timezone.utc),
-                not InventoryBatch.is_blocked,
+                InventoryBatch.is_blocked.is_(False),
             )
             .distinct()
         )

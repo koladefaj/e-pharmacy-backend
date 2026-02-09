@@ -3,6 +3,7 @@
 .env.local
 .env.docker
 .venv/
+.venv-wsl/
 app/scripts
 
 # Python
